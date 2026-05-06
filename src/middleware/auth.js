@@ -11,11 +11,19 @@ async function ensureAuthenticated(req, res, next) {
   // Verify the user still exists in the database.
   // Deleted accounts retain a valid session cookie until expiry, so we must
   // confirm the record is present on every authenticated request.
-  const exists = await User.exists({ _id: req.session.user.id });
-  if (!exists) {
-    req.session.destroy(() => {});
+  try {
+    const exists = await User.exists({ _id: req.session.user.id });
+    if (!exists) {
+      req.session.destroy(() => {});
+      if (req.xhr || req.headers.accept?.includes('application/json')) {
+        return res.status(401).json({ error: 'Account no longer exists' });
+      }
+      return res.redirect('/login');
+    }
+  } catch (dbErr) {
+    console.error('ensureAuthenticated DB check failed:', dbErr.message);
     if (req.xhr || req.headers.accept?.includes('application/json')) {
-      return res.status(401).json({ error: 'Account no longer exists' });
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
     }
     return res.redirect('/login');
   }
