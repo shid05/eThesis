@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Request Account - LNC Research Archives</title>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card medium-form">
+      <h2>Request an Account</h2>
+      <p class="muted">Submit a request to join LNC Research Archives. An administrator will review your request and send account details to your email address.</p>
+      
+      <div id="successMessage" class="card success" style="display: none; margin-bottom: 1rem; background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px;">
+        <p style="margin: 0; color: #155724; font-weight: 500;">✅ Success! Your account request has been submitted.</p>
+        <p style="margin: 10px 0 0 0; color: #155724; font-size: 0.9rem;">An administrator will review your request and send account details to your email address.</p>
+      </div>
+      
+      <div id="errorMessage" class="card danger" style="display: none; margin-bottom: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px;">
+        <p id="errorText" style="margin: 0; color: #721c24; font-weight: 500;"></p>
+      </div>
+      
+      <div id="loadingMessage" class="card" style="display: none; margin-bottom: 1rem; background: #cce5ff; border: 1px solid #b8daff; padding: 15px; border-radius: 5px;">
+        <p style="margin: 0; color: #004085; font-weight: 500;">⏳ Submitting your request...</p>
+      </div>
+      
+      <form method="POST" action="/request-account" class="form-card" onsubmit="return handleSubmit(event)">
+        <div class="form-group">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" name="name" required placeholder="Enter your full name" />
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required placeholder="you@example.com" />
+          <small class="muted">Account details will be sent to this email address</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="role">Account Type</label>
+          <select id="role" name="role" title="Select your account type" required>
+            <option value="">-- Select Account Type --</option>
+            <option value="Student">Student - Submit and manage thesis</option>
+            <option value="Teacher">Teacher - Review, manage and approve thesis</option>
+          </select>
+        </div>
+        
+        <button type="submit" id="submitBtn" class="btn lg full-width-btn">
+          Request Account
+        </button>
+      </form>
+      
+      <div class="form-divider">
+        <p class="muted">Already have an account? <a href="/login">Sign in here</a></p>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    // Check for success parameter in URL
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('success')) {
+        const successMsg = document.getElementById('successMessage');
+        if (successMsg) {
+          successMsg.style.display = 'block';
+          // Clear the form
+          document.querySelector('form').reset();
+          // Scroll to top
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+      
+      // Check for error parameter in URL
+      const error = urlParams.get('error');
+      if (error) {
+        showGeneralError(decodeURIComponent(error));
+      }
+    });
+    
+    async function handleSubmit(event) {
+      event.preventDefault();
+      
+      // Clear previous messages
+      clearErrors();
+      hideError();
+      hideSuccess();
+      hideLoading();
+      
+      // Validate form
+      if (!validate()) {
+        return;
+      }
+      
+      // Show loading state
+      showLoading();
+      
+      try {
+        const formData = new URLSearchParams(new FormData(event.target));
+        const response = await fetch('/request-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData
+        });
+        
+        if (response.ok) {
+          // Redirect to success page
+          window.location.href = '/request-account?success=true';
+        } else {
+          const errorText = await response.text();
+          showGeneralError(errorText || 'Submission failed. Please try again.');
+        }
+      } catch (error) {
+        showGeneralError('Network error. Please check your connection and try again.');
+      } finally {
+        hideLoading();
+      }
+    }
+    
+    function validate() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const role = document.getElementById('role').value;
+      
+      let hasErrors = false;
+      
+      if (!name) {
+        showError('name', 'Full name is required');
+        hasErrors = true;
+      } else if (name.length < 2) {
+        showError('name', 'Please enter your full name');
+        hasErrors = true;
+      }
+      
+      if (!email) {
+        showError('email', 'Email address is required');
+        hasErrors = true;
+      } else if (!isValidEmail(email)) {
+        showError('email', 'Please enter a valid email address');
+        hasErrors = true;
+      }
+      
+      if (!role) {
+        showError('role', 'Please select an account type');
+        hasErrors = true;
+      }
+      
+      return !hasErrors;
+    }
+    
+    function isValidEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    }
+    
+    function showError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.style.color = '#ff6b6b';
+      errorDiv.style.fontSize = '0.875rem';
+      errorDiv.style.marginTop = '4px';
+      errorDiv.textContent = message;
+      
+      field.style.borderColor = '#ff6b6b';
+      field.parentNode.appendChild(errorDiv);
+    }
+    
+    function clearErrors() {
+      const errorMessages = document.querySelectorAll('.error-message');
+      errorMessages.forEach(msg => msg.remove());
+      
+      const inputs = document.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        input.style.borderColor = '';
+      });
+    }
+    
+    function showGeneralError(message) {
+      const errorDiv = document.getElementById('errorMessage');
+      const errorText = document.getElementById('errorText');
+      if (errorDiv && errorText) {
+        errorDiv.style.display = 'block';
+        errorText.textContent = message;
+      }
+    }
+    
+    function hideError() {
+      const errorDiv = document.getElementById('errorMessage');
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+      }
+    }
+    
+    function hideSuccess() {
+      const successDiv = document.getElementById('successMessage');
+      if (successDiv) {
+        successDiv.style.display = 'none';
+      }
+    }
+    
+    function showLoading() {
+      const loadingDiv = document.getElementById('loadingMessage');
+      const submitBtn = document.getElementById('submitBtn');
+      if (loadingDiv && submitBtn) {
+        loadingDiv.style.display = 'block';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
+    }
+    
+    function hideLoading() {
+      const loadingDiv = document.getElementById('loadingMessage');
+      const submitBtn = document.getElementById('submitBtn');
+      if (loadingDiv && submitBtn) {
+        loadingDiv.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Request Account';
+      }
+    }
+  </script>
+</body>
+</html>

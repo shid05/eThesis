@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>My Thesis - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card">
+      <h2>📋 My Thesis</h2>
+      <div id="loadingMessage" class="text-muted center">Loading your thesis...</div>
+      <div id="thesesList" class="stack hidden"></div>
+      <div id="emptyMessage" class="hidden" style="display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 20px; gap:16px;">
+        <div style="font-size:4rem; margin-bottom:8px;">📭</div>
+        <h3 style="margin:0; color:var(--text);">No Thesis Submitted Yet</h3>
+        <p class="muted" style="margin:0; max-width:400px;">You haven't submitted any thesis yet. Start by uploading your first thesis to get feedback and reviews.</p>
+        <a href="/thesis/upload" class="btn primary" style="margin-top:12px;">📤 Submit Your First Thesis</a>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    async function load(){
+      try {
+        const u = await fetch('/session-info').then(r=>r.json());
+        if(!u.user || u.user.role !== 'Student'){ 
+          window.location.href = '/thesis';
+          return; 
+        }
+        
+        const res = await fetch('/thesis/api/mine');
+        const theses = await res.json();
+        
+        document.getElementById('loadingMessage').classList.add('hidden');
+        
+        if (theses.length === 0) {
+          document.getElementById('thesesList').classList.add('hidden');
+          const emptyMsg = document.getElementById('emptyMessage');
+          emptyMsg.classList.remove('hidden');
+          emptyMsg.style.display = 'flex';
+        } else {
+          document.getElementById('emptyMessage').classList.add('hidden');
+          document.getElementById('emptyMessage').style.display = 'none';
+          document.getElementById('thesesList').classList.remove('hidden');
+          
+          theses.forEach(thesis => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            
+            const statusBadge = thesis.status === 'Approved' 
+              ? '<span class="badge success">✅ Approved</span>'
+              : thesis.status === 'Pending'
+              ? '<span class="badge warning">⏳ Pending</span>'
+              : thesis.status === 'Rejected'
+              ? '<span class="badge danger">❌ Rejected</span>'
+              : '<span class="badge">Unknown</span>';
+            
+            div.innerHTML = `
+              <h3>${thesis.title} <span class="badge outline" style="font-size: 0.5em; vertical-align: middle;">${thesis.category || 'Thesis'}</span></h3>
+              <p class="muted" style="margin: 4px 0;">Course: <strong>${thesis.course || 'N/A'}</strong> | Adviser: <strong>${thesis.adviser || 'N/A'}</strong></p>
+              <p class="muted">Submitted: ${new Date(thesis.createdAt).toLocaleDateString()}</p>
+              <p class="muted">Status: ${statusBadge}</p>
+              ${thesis.status === 'Rejected' && thesis.rejectionReason ? `
+              <div style="margin-top: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #ef4444;">
+                <strong style="display:block; margin-bottom: 4px;">Reason for Rejection:</strong> ${thesis.rejectionReason}
+              </div>` : ''}
+              <div class="flex-wrap gap-12 margin-top-16">
+                ${thesis.status === 'Pending' ? `
+                  <a href="/thesis/edit/${thesis._id}" class="btn primary">✏️ Edit</a>
+                  <a href="#" onclick="deleteThesis('${thesis._id}')" class="btn danger">🗑️ Delete</a>
+                ` : thesis.status === 'Approved' ? `
+                  <a href="/thesis/${thesis._id}" class="btn primary">👁️ View</a>
+                ` : `
+                  <span class="text-muted">No actions available</span>
+                `}
+              </div>
+            `;
+            
+            document.getElementById('thesesList').appendChild(div);
+          });
+        }
+        
+      } catch (error) {
+        document.getElementById('loadingMessage').innerHTML = '<p class="text-danger">Error loading thesis: ' + error.message + '</p>';
+      }
+    }
+    
+    async function deleteThesis(id) {
+      if (!confirm('Are you sure you want to delete this thesis? This action cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/thesis/delete/${id}`, { method: 'POST' });
+        if (res.ok) {
+          showNotification('Thesis deleted successfully', 'success');
+          load(); // Reload the list
+        } else {
+          showNotification('Failed to delete thesis', 'error');
+        }
+      } catch (error) {
+        showNotification('Error deleting thesis', 'error');
+      }
+    }
+    
+    window.onload = load;
+  </script>
+</body>
+</html>

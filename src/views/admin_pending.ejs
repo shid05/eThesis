@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Pending Thesis - Admin</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="margin: 0;">⏳ Pending Thesis</h2>
+      </div>
+      
+      <div class="search-container" style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+        <input type="text" id="searchInput" placeholder="Search by author name..." class="form-input" oninput="filterTheses()" style="flex: 1; min-width: 250px;" />
+        <select id="courseSelect" class="form-input" onchange="filterTheses()" style="flex: 1; max-width: 300px;">
+          <option value="">All Courses</option>
+        </select>
+      </div>
+      <div id="list" class="stack">
+        <div class="text-muted center">Loading pending thesis...</div>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    let allPending = [];
+
+    async function load(){
+      try {
+        const res = await fetch('/thesis/api/admin/pending');
+        allPending = await res.json();
+        
+        // Populate specific courses found in the pending queue
+        const courseSelect = document.getElementById('courseSelect');
+        const courses = new Set();
+        allPending.forEach(t => { if(t.course) courses.add(t.course.trim().toUpperCase()); });
+        
+        [...courses].sort().forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          courseSelect.appendChild(opt);
+        });
+        
+        renderTheses(allPending);
+      } catch (error) {
+        document.getElementById('list').innerHTML = '<p class="text-danger">Error loading pending thesis: ' + error.message + '</p>';
+      }
+    }
+
+    function filterTheses() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const course = document.getElementById('courseSelect').value;
+      
+      const filtered = allPending.filter(t => {
+         const authorName = (t.author && t.author.name) ? t.author.name.toLowerCase() : '';
+         const adviserName = t.adviser ? t.adviser.toLowerCase() : '';
+         const authorsString = t.authorsName ? t.authorsName.toLowerCase() : '';
+         const titleStr = t.title ? t.title.toLowerCase() : '';
+         
+         const searchMatch = authorName.includes(search) || adviserName.includes(search) || authorsString.includes(search) || titleStr.includes(search);
+         const courseMatch = course === '' || (t.course && t.course.trim().toUpperCase() === course);
+         return searchMatch && courseMatch;
+      });
+      renderTheses(filtered);
+    }
+
+    function renderTheses(data) {
+        const list = document.getElementById('list');
+        list.innerHTML = '';
+        
+        if (data && data.length > 0) {
+          data.forEach(function(t){
+            const li = document.createElement('div');
+            li.className = 'card';
+            
+            const excerpt = (t.abstract||'').substring(0,160) + (t.abstract && t.abstract.length>160 ? '...' : '');
+            const title = t.title || 'Untitled';
+            const authorName = t.author ? t.author.name : 'Unknown';
+            const authorEmail = t.author ? t.author.email : '';
+            const adviserName = t.adviser || 'Not Assigned';
+            const tId = t._id;
+            
+            li.innerHTML = `<h3>${title}</h3>
+              <p class="muted">${excerpt}</p>
+              <div class="thesis-card-footer" style="margin-top:16px; display: flex; flex-direction: column; align-items: stretch; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <span class="badge warning">Pending</span>
+                    <span class="badge">By ${authorName} (${authorEmail})</span>
+                  </div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <span class="badge" style="background: rgba(59,130,246,0.1); color: var(--primary); border: 1px solid rgba(59,130,246,0.2);">👨‍🏫 Adviser: ${adviserName}</span>
+                    ${t.course ? `<span class="badge" style="background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.2);">📚 ${t.course}</span>` : ''}
+                  </div>
+                </div>
+                <div class="card-actions">
+                  <a class="btn sm outline" href="/thesis/${tId}">👁️ View Details</a>
+                  <form method="POST" action="/thesis/${tId}/approve" class="inline-form" style="margin: 0;">
+                    <button type="submit" class="btn sm success">✅ Approve</button>
+                  </form>
+                </div>
+              </div>`;
+            
+            list.appendChild(li);
+          });
+        } else {
+          list.innerHTML = '<div class="text-muted center">No pending thesis match your search.</div>';
+        }
+    }
+    
+    window.onload = load;
+  </script>
+</body>
+</html>

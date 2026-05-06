@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Login - LNC Research Archives</title>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card medium-form">
+      <h2>Welcome Back</h2>
+      <p class="muted">Sign in to your account to continue</p>
+      
+      <form id="loginForm" class="form-card" onsubmit="return handleLogin(event)">
+        <!-- Inline error banner (hidden by default) -->
+        <div id="loginError" style="display:none; padding:12px 16px; border-radius:12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--danger-light); font-size:0.9rem; text-align:center;"></div>
+        
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required placeholder="you@example.com" />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="password-field">
+            <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password" />
+            <button type="button" id="togglePassword" class="password-toggle" aria-label="Show password" aria-pressed="false">
+              <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/>
+                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="2" y1="2" x2="22" y2="22"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div style="text-align:right; margin-top:-4px;">
+          <a href="/forgot-password" style="font-size:0.875rem; color:var(--primary-light); text-decoration:none; font-weight:500;">Forgot Password?</a>
+        </div>
+        
+        <button type="submit" id="loginBtn" class="btn lg full-width-btn">
+          Sign In
+        </button>
+      </form>
+      
+      <div class="form-divider">
+        <p class="muted">Don't have an account? <a href="/request-account">Request one here</a></p>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorBox = document.getElementById('loginError');
+      const loginBtn = document.getElementById('loginBtn');
+      
+      // Clear previous errors
+      clearErrors();
+      errorBox.style.display = 'none';
+      
+      // Client-side validation
+      let hasErrors = false;
+      
+      if (!email) {
+        showError('email', 'Email is required');
+        hasErrors = true;
+      } else if (!isValidEmail(email)) {
+        showError('email', 'Please enter a valid email address');
+        hasErrors = true;
+      }
+      
+      if (!password) {
+        showError('password', 'Password is required');
+        hasErrors = true;
+      } else if (password.length < 6) {
+        showError('password', 'Password must be at least 6 characters long');
+        hasErrors = true;
+      }
+      
+      if (hasErrors) return false;
+      
+      // Disable button during request
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Signing in...';
+      
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        if (res.redirected) {
+          window.location.href = res.url;
+          return;
+        }
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          let errorMsg;
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMsg = errorJson.error || 'Invalid credentials';
+          } catch {
+            errorMsg = errorText || 'Invalid credentials';
+          }
+          
+          errorBox.textContent = '⚠️ ' + errorMsg;
+          errorBox.style.display = 'block';
+          
+          // Shake animation
+          errorBox.style.animation = 'none';
+          errorBox.offsetHeight; // reflow
+          errorBox.style.animation = 'shake 0.4s ease';
+        } else {
+          window.location.href = '/';
+        }
+      } catch (err) {
+        errorBox.textContent = '⚠️ Network error. Please try again.';
+        errorBox.style.display = 'block';
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Sign In';
+      }
+      
+      return false;
+    }
+    
+    function isValidEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    }
+    
+    function showError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.style.color = '#ff6b6b';
+      errorDiv.style.fontSize = '0.875rem';
+      errorDiv.style.marginTop = '4px';
+      errorDiv.textContent = message;
+      
+      field.style.borderColor = '#ff6b6b';
+      field.parentNode.appendChild(errorDiv);
+    }
+    
+    function clearErrors() {
+      const errorMessages = document.querySelectorAll('.error-message');
+      errorMessages.forEach(msg => msg.remove());
+      
+      const inputs = document.querySelectorAll('input');
+      inputs.forEach(input => {
+        input.style.borderColor = '';
+      });
+    }
+
+    // Show/hide password toggle
+    (function () {
+      const toggle = document.getElementById('togglePassword');
+      const input = document.getElementById('password');
+      if (!toggle || !input) return;
+
+      toggle.addEventListener('click', function () {
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        toggle.classList.toggle('is-visible', isHidden);
+        toggle.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+        toggle.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+        // Keep focus + caret in the input for fast typing
+        input.focus({ preventScroll: true });
+      });
+    })();
+  </script>
+  
+  <style>
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+  </style>
+</body>
+</html>
+

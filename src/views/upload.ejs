@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Upload Thesis - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <style>
+    /* Stack the 2-column thesis-info grid into one column on phones so
+       longer labels don't wrap awkwardly and rows align cleanly. */
+    @media (max-width: 600px) {
+      .upload-form .form-row.split-group.multiple-row {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="upload-container">
+      <!-- Upload Header -->
+      <div class="upload-header">
+        <div class="header-content">
+          <div class="header-icon">📤</div>
+          <div class="header-text">
+            <h2 class="upload-title">Submit Your Thesis</h2>
+            <p class="upload-subtitle">Share your research with the academic community. Your submission will be reviewed by teachers before publication.</p>
+          </div>
+        </div>
+        <div class="guidelines-section" style="margin-top: 24px;">
+          <div class="guidelines-card enhanced">
+            <div class="guidelines-header">
+              <h4>📋 Submission Guidelines</h4>
+              <p class="guidelines-subtitle">Please ensure your thesis meets the following requirements:</p>
+            </div>
+            <div class="guidelines-grid">
+              <div class="guideline-item">
+                <span class="guideline-icon">📄</span>
+                <div>
+                  <strong>PDF Format</strong>
+                  <p>Ensure your thesis is uploaded as a standard PDF file</p>
+                </div>
+              </div>
+              <div class="guideline-item">
+                <span class="guideline-icon">✅</span>
+                <div>
+                  <strong>Complete Document</strong>
+                  <p>The document should be complete and final version</p>
+                </div>
+              </div>
+              <div class="guideline-item">
+                <span class="guideline-icon">🎯</span>
+                <div>
+                  <strong>Original Work</strong>
+                  <p>All content must be original and properly cited</p>
+                </div>
+              </div>
+              <div class="guideline-item">
+                <span class="guideline-icon">👨‍🏫</span>
+                <div>
+                  <strong>Teacher Review</strong>
+                  <p>Teacher approval is required before publication</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Form -->
+      <div class="upload-main">
+        <!-- Top-of-form error banner (filled in by validate() when something is wrong) -->
+        <div id="formErrorBanner" role="alert"
+          style="display:none; margin:0 0 16px 0; padding:14px 18px; border-radius:10px;
+                 background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35);
+                 color:#fecaca; font-size:0.95rem;">
+          <strong>⚠️ Please fix the highlighted fields below:</strong>
+          <ul id="formErrorList" style="margin:8px 0 0 20px; padding:0;"></ul>
+        </div>
+
+        <form method="POST" action="/thesis/upload" class="upload-form" enctype="multipart/form-data" onsubmit="return validate()">
+          <!-- Thesis Information Section -->
+          <div class="form-section">
+            <div class="section-header">
+              <h3>📝 Thesis Information</h3>
+              <p class="section-description">Provide basic details about your thesis</p>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="title" class="form-label enhanced">
+                  <span class="label-icon">📄</span>
+                  Thesis Title
+                  <span class="required">*</span>
+                </label>
+                <input type="text" id="title" name="title" required placeholder="Enter a clear and concise title" maxlength="200" class="form-input enhanced" />
+                <div class="form-hint">
+                  <span class="character-count" id="titleCount">0</span>/200 characters
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-row split-group multiple-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              <div class="form-group">
+                <label for="category" class="form-label enhanced">
+                  <span class="label-icon">📑</span>
+                  Category
+                  <span class="required">*</span>
+                </label>
+                <select id="category" name="category" required class="form-input enhanced">
+                  <option value="" disabled selected>Select category...</option>
+                  <option value="Thesis">Thesis</option>
+                  <option value="Capstone">Capstone</option>
+                  <option value="Research">Research</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="course" class="form-label enhanced">
+                  <span class="label-icon">🎓</span>
+                  Course / Strand
+                  <span class="required">*</span>
+                </label>
+                <input type="text" id="course" name="course" required placeholder="e.g. BSCS, STEM..." class="form-input enhanced" />
+              </div>
+
+              <div class="form-group">
+                <label for="authorsName" class="form-label enhanced">
+                  <span class="label-icon">👥</span>
+                  Authors
+                  <span class="required">*</span>
+                </label>
+                <input type="text" id="authorsName" name="authorsName" required placeholder="Group members' full names..." class="form-input enhanced" />
+              </div>
+
+              <div class="form-group">
+                <label for="adviser" class="form-label enhanced">
+                  <span class="label-icon">👨‍🏫</span>
+                  Adviser
+                  <span class="required">*</span>
+                </label>
+                <select id="adviser" name="adviser" required class="form-input enhanced">
+                  <option value="" disabled selected>Loading advisers...</option>
+                </select>
+                <div class="form-hint" id="adviserHint" style="display: none;">
+                  No teachers are registered yet. Please contact an admin.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="yearPublished" class="form-label enhanced">
+                  <span class="label-icon">📅</span>
+                  Capstone Year
+                  <span class="required">*</span>
+                </label>
+                <input type="text" id="yearPublished" name="yearPublished" required placeholder="e.g. 2025-2026" class="form-input enhanced" />
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="abstract" class="form-label enhanced">
+                  <span class="label-icon">📋</span>
+                  Abstract
+                  <span class="required">*</span>
+                </label>
+                <textarea id="abstract" name="abstract" rows="8" required placeholder="Provide a comprehensive summary of your thesis, including objectives, methodology, key findings, and conclusions." minlength="100" maxlength="2000" class="form-textarea enhanced"></textarea>
+                <div class="form-hint">
+                  <span class="character-count" id="abstractCount">0</span>/2000 characters (min: 100)
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Document Section -->
+          <div class="form-section">
+            <div class="section-header">
+              <h3>📎 Document Upload</h3>
+              <p class="section-description">Upload your thesis PDF document</p>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="thesisFile" class="form-label enhanced">
+                  <span class="label-icon">📎</span>
+                  PDF Document
+                  <span class="required">*</span>
+                </label>
+                <input type="file" id="thesisFile" name="thesisFile" accept="application/pdf" required class="form-input enhanced" style="padding: 10px; background: rgba(0,0,0,0.2);" />
+                <div class="form-hint">
+                  Please upload your thesis as a PDF file (Max 20MB limit).
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Submit Section -->
+          <div class="submit-section">
+            <div class="submit-actions">
+              <button type="submit" class="btn success lg submit-btn">
+                <span class="btn-icon">📤</span>
+                Submit for Review
+              </button>
+            </div>
+            <div class="submit-note">
+              <p class="muted">By submitting, you confirm that your thesis meets all requirements and is ready for academic review.</p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    // Character counting + adviser dropdown population
+    document.addEventListener('DOMContentLoaded', function() {
+      const titleInput = document.getElementById('title');
+      const abstractInput = document.getElementById('abstract');
+      const titleCount = document.getElementById('titleCount');
+      const abstractCount = document.getElementById('abstractCount');
+      
+      if (titleInput && titleCount) {
+        titleInput.addEventListener('input', function() {
+          titleCount.textContent = this.value.length;
+        });
+      }
+      
+      if (abstractInput && abstractCount) {
+        abstractInput.addEventListener('input', function() {
+          abstractCount.textContent = this.value.length;
+        });
+      }
+
+      loadAdvisers();
+    });
+
+    async function loadAdvisers() {
+      const select = document.getElementById('adviser');
+      const hint = document.getElementById('adviserHint');
+      if (!select) return;
+
+      try {
+        const res = await fetch('/thesis/api/teachers', {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const raw = await res.json();
+
+        // Drop teachers with missing/blank names so we never render a
+        // "null" option in the dropdown.
+        const teachers = (Array.isArray(raw) ? raw : []).filter(function (t) {
+          return t && typeof t.name === 'string' && t.name.trim().length > 0;
+        });
+
+        // Reset to a fresh placeholder
+        select.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        placeholder.textContent = teachers.length
+          ? 'Select your adviser...'
+          : 'No teachers available';
+        select.appendChild(placeholder);
+
+        teachers.forEach(function (t) {
+          const name = t.name.trim();
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          select.appendChild(opt);
+        });
+
+        if (!teachers.length && hint) hint.style.display = 'block';
+      } catch (err) {
+        console.error('Failed to load advisers:', err);
+        select.innerHTML =
+          '<option value="" disabled selected>Could not load advisers</option>';
+      }
+    }
+    
+    function validate(){
+      const title = document.getElementById('title').value.trim();
+      const category = document.getElementById('category').value;
+      const course = document.getElementById('course').value.trim();
+      const authorsName = document.getElementById('authorsName').value.trim();
+      const adviser = document.getElementById('adviser').value.trim();
+      const yearPublished = document.getElementById('yearPublished').value.trim();
+      const abstract = document.getElementById('abstract').value.trim();
+      const fileInput = document.getElementById('thesisFile');
+      const file = fileInput.files[0];
+
+      // Clear previous error messages
+      clearErrors();
+
+      // Collect every error so we can render them in the top banner.
+      const errors = [];
+      const fail = (fieldId, message) => {
+        showError(fieldId, message);
+        errors.push({ fieldId, message });
+      };
+
+      if (!title) {
+        fail('title', 'Title is required');
+      } else if (title.length < 10) {
+        fail('title', 'Title must be at least 10 characters long');
+      } else if (title.length > 200) {
+        fail('title', 'Title cannot exceed 200 characters');
+      }
+      if (!category)      fail('category',      'Category is required');
+      if (!course)        fail('course',        'Course/Strand is required');
+      if (!authorsName)   fail('authorsName',   'Authors name is required');
+      if (!adviser)       fail('adviser',       'Adviser is required');
+      if (!yearPublished) fail('yearPublished', 'Capstone year is required');
+
+      if (!abstract) {
+        fail('abstract', 'Abstract is required');
+      } else if (abstract.length < 100) {
+        fail('abstract', 'Abstract must be at least 100 characters long (currently ' + abstract.length + ')');
+      } else if (abstract.length > 2000) {
+        fail('abstract', 'Abstract cannot exceed 2000 characters');
+      }
+
+      if (!file) {
+        fail('thesisFile', 'PDF file is required');
+      } else if (!file.name.toLowerCase().endsWith('.pdf')) {
+        fail('thesisFile', 'Only PDF format is allowed');
+      } else if (file.size > 20 * 1024 * 1024) {
+        fail('thesisFile', 'File size exceeds 20MB limit (your file is ' + (file.size / 1024 / 1024).toFixed(1) + 'MB)');
+      }
+
+      if (errors.length > 0) {
+        // Render summary banner at top of form
+        const banner = document.getElementById('formErrorBanner');
+        const list   = document.getElementById('formErrorList');
+        if (list) {
+          list.innerHTML = errors
+            .map(e => '<li>' + e.message + '</li>')
+            .join('');
+        }
+        if (banner) banner.style.display = 'block';
+
+        // Scroll to the first failing field so the user can see what's wrong
+        const firstField = document.getElementById(errors[0].fieldId);
+        if (firstField) {
+          firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Try to focus too (some inputs like <input type="file"> are focusable)
+          try { firstField.focus({ preventScroll: true }); } catch (_) {}
+        } else if (banner) {
+          banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+      }
+
+      // All good — show a "submitting" state on the button so the user knows
+      // the (potentially slow) Cloudinary upload is in flight.
+      const submitBtn = document.querySelector('.submit-btn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="btn-icon">⏳</span> Uploading…';
+      }
+      return true;
+    }
+    
+
+    
+    function showError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.style.color = '#ff6b6b';
+      errorDiv.style.fontSize = '0.875rem';
+      errorDiv.style.marginTop = '4px';
+      errorDiv.textContent = message;
+      
+      field.style.borderColor = '#ff6b6b';
+      field.parentNode.appendChild(errorDiv);
+    }
+    
+    function clearErrors() {
+      const errorMessages = document.querySelectorAll('.error-message');
+      errorMessages.forEach(msg => msg.remove());
+
+      const inputs = document.querySelectorAll('input, textarea, select');
+      inputs.forEach(input => {
+        input.style.borderColor = '';
+      });
+
+      const banner = document.getElementById('formErrorBanner');
+      if (banner) banner.style.display = 'none';
+      const list = document.getElementById('formErrorList');
+      if (list) list.innerHTML = '';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Edit Thesis - LNC Research Archives</title>
+  <script src="/public/js/notifications.js"></script>
+  <style>
+    /* Stack the 2-column thesis-info grid into one column on phones so
+       longer labels don't wrap awkwardly and rows align cleanly. */
+    @media (max-width: 600px) {
+      .form-card > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+  <script>
+    async function loadThesis() {
+      try {
+        const id = location.pathname.split('/').pop();
+        const [thesisRes, teachersRes] = await Promise.all([
+          fetch(`/thesis/api/${id}`),
+          fetch('/thesis/api/teachers').catch(() => null)
+        ]);
+
+        if (!thesisRes.ok) {
+          const errorData = await thesisRes.json().catch(() => ({}));
+          const errorMessage = errorData.error || 'Thesis not found';
+          document.getElementById('content').innerHTML = `
+            <div class="card center flex-col gap-20" style="min-height: 40vh;">
+              <h2 class="text-danger">Error</h2>
+              <p class="muted">${errorMessage}</p>
+              <a href="/thesis/mine" class="btn">Back to My Thesis</a>
+            </div>
+          `;
+          return;
+        }
+
+        const { thesis } = await thesisRes.json();
+        const teachers = (teachersRes && teachersRes.ok) ? await teachersRes.json() : [];
+
+        // Populate the adviser dropdown (must happen BEFORE we set its value)
+        populateAdvisers(teachers, thesis.adviser);
+
+        // Populate form with existing data
+        document.getElementById('title').value = thesis.title || '';
+        document.getElementById('category').value = thesis.category || '';
+        document.getElementById('course').value = thesis.course || '';
+        document.getElementById('authorsName').value = thesis.authorsName || '';
+        document.getElementById('yearPublished').value = thesis.yearPublished || '';
+        document.getElementById('abstract').value = thesis.abstract || '';
+        document.getElementById('currentFileLink').href = thesis.fileUrl;
+
+        // Update page title
+        document.title = `Edit: ${thesis.title} - LNC Research Archives`;
+
+      } catch (error) {
+        console.error('Error loading thesis:', error);
+        document.getElementById('content').innerHTML = `
+          <div class="card center flex-col gap-20" style="min-height: 40vh;">
+            <h2 class="text-danger">Error</h2>
+            <p class="muted">Failed to load thesis details</p>
+            <a href="/thesis/mine" class="btn">Back to My Thesis</a>
+          </div>
+        `;
+      }
+    }
+
+    function populateAdvisers(teachers, currentAdviser) {
+      const select = document.getElementById('adviser');
+      if (!select) return;
+
+      // Drop teachers with missing/blank names so we never render a
+      // "null" option in the dropdown.
+      const valid = (Array.isArray(teachers) ? teachers : []).filter(function (t) {
+        return t && typeof t.name === 'string' && t.name.trim().length > 0;
+      });
+
+      select.innerHTML = '';
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.disabled = true;
+      placeholder.textContent = valid.length
+        ? 'Select your adviser...'
+        : 'No teachers available';
+      select.appendChild(placeholder);
+
+      const names = valid.map(function (t) { return t.name.trim(); });
+      names.forEach(function (name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+
+      // Preserve the previously-saved adviser even if they're no longer a Teacher
+      if (currentAdviser && !names.includes(currentAdviser)) {
+        const legacy = document.createElement('option');
+        legacy.value = currentAdviser;
+        legacy.textContent = currentAdviser + ' (no longer a teacher)';
+        select.appendChild(legacy);
+      }
+
+      if (currentAdviser) {
+        select.value = currentAdviser;
+      } else {
+        placeholder.selected = true;
+      }
+    }
+    
+    function validate() {
+      const required = document.querySelectorAll('[required]');
+      for (const el of required) {
+        if (!el.value.trim()) {
+          alert('Please fill all fields');
+          return false;
+        }
+      }
+      
+      // Additional validation
+      const title = document.getElementById('title').value.trim();
+      const category = document.getElementById('category').value;
+      const course = document.getElementById('course').value.trim();
+      const authorsName = document.getElementById('authorsName').value.trim();
+      const adviser = document.getElementById('adviser').value.trim();
+      const yearPublished = document.getElementById('yearPublished').value.trim();
+      const abstract = document.getElementById('abstract').value.trim();
+      const fileInput = document.getElementById('thesisFile');
+      const file = fileInput.files[0];
+      
+      if (!category || !course || !authorsName || !adviser || !yearPublished) {
+        alert('Category, Course, Authors, Adviser, and Capstone Year fields are all required.');
+        return false;
+      }
+      
+      if (title.length < 10) {
+        alert('Title must be at least 10 characters long');
+        return false;
+      }
+      
+      if (abstract.length < 100) {
+        alert('Abstract must be at least 100 characters long');
+        return false;
+      }
+      
+      if (file) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          alert('Only PDF format is allowed');
+          return false;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          alert('File size exceeds 20MB limit');
+          return false;
+        }
+      }
+      
+      return true;
+    }
+    
+    function confirmDelete() {
+      if (confirm('Are you sure you want to delete this thesis? This action cannot be undone.')) {
+        const id = location.pathname.split('/').pop();
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/thesis/delete/${id}`;
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+  </script>
+</head>
+<body onload="loadThesis()">
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container" id="content">
+    <div class="card wide-form">
+      <div class="thesis-header">
+        <h2>Edit Your Thesis</h2>
+        <p class="muted">Update your thesis information. Only pending thesis can be edited.</p>
+      </div>
+      
+      <form method="POST" class="form-card" enctype="multipart/form-data" onsubmit="return validate()">
+        <div class="form-group">
+          <label for="title">Thesis Title</label>
+          <input type="text" id="title" name="title" required placeholder="Enter a clear and concise title" maxlength="200" />
+          <small class="muted">Maximum 200 characters</small>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category" required>
+              <option value="" disabled selected>Select category...</option>
+              <option value="Thesis">Thesis</option>
+              <option value="Capstone">Capstone</option>
+              <option value="Research">Research</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="course">Course / Strand</label>
+            <input type="text" id="course" name="course" required placeholder="e.g. BSCS, STEM..." />
+          </div>
+
+          <div class="form-group">
+            <label for="authorsName">Authors</label>
+            <input type="text" id="authorsName" name="authorsName" required placeholder="Group members' full names..." />
+          </div>
+
+          <div class="form-group">
+            <label for="adviser">Adviser</label>
+            <select id="adviser" name="adviser" required>
+              <option value="" disabled selected>Loading advisers...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="yearPublished">Capstone Year</label>
+            <input type="text" id="yearPublished" name="yearPublished" required placeholder="e.g. 2025-2026" />
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="abstract">Abstract</label>
+          <textarea id="abstract" name="abstract" rows="8" required placeholder="Provide a comprehensive summary of your thesis, including objectives, methodology, key findings, and conclusions." minlength="100" maxlength="2000"></textarea>
+          <small class="muted">Between 100-2000 characters. Be descriptive and informative.</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="thesisFile">Update PDF Document (Optional)</label>
+          <input type="file" id="thesisFile" name="thesisFile" accept="application/pdf" />
+          <p class="muted" style="margin-bottom: 5px; font-size: 0.9em;">Current file: <a id="currentFileLink" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">View Current PDF</a></p>
+          <small class="muted">Leave blank to keep your currently uploaded document, or select a new PDF file to replace it (Max 20MB limit).</small>
+        </div>
+        
+        <div class="action-bar">
+          <button type="submit" class="btn success">
+            Update Thesis
+          </button>
+          <a href="/thesis/mine" class="btn outline">
+            Cancel
+          </a>
+          <button type="button" class="btn danger" onclick="confirmDelete()">
+            Delete Thesis
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

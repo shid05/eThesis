@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <%- include("partials/head") %>
+  <title>Profile - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <style>
+    @media (max-width: 1024px) {
+      .profile-bento {
+        grid-template-columns: 1fr !important;
+      }
+
+      .profile-bento .grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    /* === Mobile fix for the avatar card ===
+       Each rule below is doubly-scoped under
+         `.profile-picture-section .profile-avatar-container ...`
+       so it wins specificity-wise against the inline width/height/font-size
+       on the avatar elements (with !important the inline styles lose). */
+    @media (max-width: 768px) {
+      .profile-picture-section {
+        display: block !important;
+        text-align: center !important;
+        padding: 32px 20px !important;
+      }
+
+      /* Lock the wrapper to a known size */
+      .profile-picture-section .profile-avatar-container {
+        display: inline-block !important;
+        position: relative !important;
+        width: 160px !important;
+        height: 160px !important;
+        margin: 0 auto 20px !important;
+        line-height: 0 !important;
+        vertical-align: top !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+      }
+
+      /* Force BOTH the <img> and the fallback <div> avatar to fill the
+         wrapper exactly, beating the inline `style="width:180px;height:180px"`. */
+      .profile-picture-section .profile-avatar-container > img.profile-picture,
+      .profile-picture-section .profile-avatar-container > div.default-avatar {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        box-sizing: border-box !important;
+      }
+
+      .profile-picture-section .profile-avatar-container > div.default-avatar {
+        font-size: 4.5rem !important;
+      }
+
+      /* Pin the upload button to the bottom-right corner of the wrapper.
+         All four sides are set explicitly so no inheriting `top`/`left`
+         can shove the button up or off. Flex-centering is reapplied with
+         !important so the SVG is guaranteed centered inside the circle. */
+      .profile-picture-section .profile-avatar-container > label[for="profileUpload"] {
+        position: absolute !important;
+        top: auto !important;
+        left: auto !important;
+        right: 6px !important;
+        bottom: 6px !important;
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-width: 2px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 0 !important;
+        transform: none !important;
+        z-index: 2 !important;
+        box-sizing: border-box !important;
+      }
+
+      /* Shrink the SVG so it fits comfortably and stays optically centred
+         inside the smaller button. */
+      .profile-picture-section .profile-avatar-container > label[for="profileUpload"] > svg {
+        width: 16px !important;
+        height: 16px !important;
+        display: block !important;
+        flex-shrink: 0 !important;
+      }
+
+      /* Account-info & change-password grids → single column on phones */
+      .profile-info-section .grid[style*="grid-template-columns: 1fr 1fr 1fr"],
+      .profile-info-section .grid[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    /* Smaller phones — shrink the avatar a bit further */
+    @media (max-width: 480px) {
+      .profile-picture-section .profile-avatar-container {
+        width: 140px !important;
+        height: 140px !important;
+      }
+      .profile-picture-section .profile-avatar-container > div.default-avatar {
+        font-size: 3.8rem !important;
+      }
+      .profile-picture-section .profile-avatar-container > label[for="profileUpload"] {
+        width: 32px !important;
+        height: 32px !important;
+        right: 4px !important;
+        bottom: 4px !important;
+      }
+      .profile-picture-section .profile-avatar-container > label[for="profileUpload"] > svg {
+        width: 14px !important;
+        height: 14px !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+
+    <main class="container">
+      <div class="profile-bento"
+        style="display: grid; grid-template-columns: 1fr 2.5fr; gap: 32px; align-items: start;">
+
+        <!-- Profile Picture Section (Left) -->
+        <div class="content-card profile-picture-section"
+          style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 32px; text-align: center;">
+          <div class="profile-avatar-container" style="position: relative; margin-bottom: 24px; display: inline-block;">
+            <img id="profilePic"
+              src="<%= currentUser && currentUser.profilePicture ? (currentUser.profilePicture.startsWith('http') ? currentUser.profilePicture : '/' + currentUser.profilePicture) : '' %>"
+              alt="Profile Picture" class="profile-picture <%= (currentUser && currentUser.profilePicture) ? '' : 'hidden' %>"
+              style="width: 180px; height: 180px; object-fit: cover; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 4px solid var(--border);" />
+
+            <div id="noProfilePic" class="default-avatar <%= (currentUser && currentUser.profilePicture) ? 'hidden' : '' %>"
+              style="display: flex; width: 180px; height: 180px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%); align-items: center; justify-content: center; font-size: 5rem; font-weight: bold; color: white; box-shadow: 0 10px 25px rgba(59,130,246,0.3); text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+              <span id="avatarInitial">
+                <%= currentUser && currentUser.name ? currentUser.name.charAt(0).toUpperCase() : '👤' %>
+              </span>
+            </div>
+
+            <!-- Edit Profile Picture Button -->
+            <label for="profileUpload"
+              style="position: absolute; bottom: 5px; right: 15px; background: var(--primary); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 3px solid #1a1a2e; transition: transform 0.2s, background 0.2s;"
+              title="Change Profile Picture">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </label>
+            <input type="file" id="profileUpload" accept="image/*" style="display: none;" />
+          </div>
+          <h2 id="displayName" style="margin-bottom: 8px;">
+            <%= currentUser ? currentUser.name : 'Loading...' %>
+          </h2>
+          <p id="displayEmail" class="muted">
+            <%= currentUser ? currentUser.email : 'Loading...' %>
+          </p>
+        </div>
+
+        <!-- Profile Information Section (Right) -->
+        <div class="profile-info-section" style="display: flex; flex-direction: column; gap: 32px;">
+
+          <!-- Info Card -->
+          <div class="content-card">
+            <h3
+              style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+              📋 Account Information</h3>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+              <div class="form-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label style="margin:0;">Full Name</label>
+                  <button id="editNameBtn" onclick="toggleNameEdit()" class="btn ghost sm" style="padding:0 4px; font-size:0.8rem; height:24px; color:var(--primary); background:none; text-decoration:underline;">Edit</button>
+                </div>
+                <div class="form-value" id="nameDisplayContainer" style="display:block;">
+                  <span id="nameText"><%= currentUser ? currentUser.name : 'Loading...' %></span>
+                </div>
+                <div id="nameEditForm" class="hidden" style="display:flex; gap:8px; margin-top:8px;">
+                  <input type="text" id="newNameInput" class="form-input" style="flex:1;" value="<%= currentUser ? currentUser.name : '' %>" />
+                  <button onclick="saveName()" class="btn primary sm">Save</button>
+                  <button onclick="toggleNameEdit()" class="btn outline sm">Cancel</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Email Address</label>
+                <div class="form-value" id="email">
+                  <%= currentUser ? currentUser.email : 'Loading...' %>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Account Type</label>
+                <div class="form-value">
+                  <span id="roleBadge" class="badge <%= currentUser ? currentUser.role.toLowerCase() : 'loading' %>"
+                    style="font-size: 1rem; padding: 8px 16px;">
+                    <%= currentUser ? currentUser.role : 'Loading...' %>
+                  </span>
+                </div>
+              </div>
+
+              <% if (currentUser && currentUser.createdAt) { %>
+                <div class="form-group">
+                  <label>Member Since</label>
+                  <div class="form-value">
+                    <%= new Date(currentUser.createdAt).toLocaleDateString() %>
+                  </div>
+                </div>
+                <% } %>
+            </div>
+          </div>
+
+          <!-- Role-specific Links -->
+          <% if (currentUser && currentUser.role==='Admin' ) { %>
+            <div class="content-card" id="adminLinks">
+              <h3
+                style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+                🛡️ Administrative Privileges</h3>
+              <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                <a href="/admin/dashboard" class="btn primary">📊 System Dashboard</a>
+                <a href="/admin/users" class="btn secondary">👥 Manage Users</a>
+                <a href="/admin/account-requests" class="btn info">📧 Account Requests</a>
+                <a href="/admin/reports" class="btn outline">📊 Generate Reports</a>
+              </div>
+            </div>
+            <% } %>
+
+              <% if (currentUser && currentUser.role==='Teacher' ) { %>
+                <div class="content-card" id="reviewerLinks">
+                  <h3
+                    style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+                    👨‍🏫 Teacher Actions</h3>
+                  <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                    <a href="/thesis/reviewer/pending" class="btn primary">📝 Assessment Queue</a>
+                  </div>
+                </div>
+                <% } %>
+
+                  <% if (currentUser && currentUser.role==='Student' ) { %>
+                    <div class="content-card">
+                      <h3
+                        style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+                        👨‍🎓 Student Actions</h3>
+                      <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                        <a href="/thesis/upload" class="btn primary">📤 Upload New Thesis</a>
+                        <a href="/thesis/mine" class="btn secondary">📋 Track My Thesis</a>
+                        <a href="/thesis" class="btn outline">📚 Browse Archives</a>
+                      </div>
+                    </div>
+                    <% } %>
+
+          <!-- Change Password Card -->
+          <div class="content-card">
+            <h3 style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+              🔑 Change Password</h3>
+            
+            <div id="passwordSuccess" class="hidden" style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;">
+              ✅ Password changed successfully!
+            </div>
+            <div id="passwordError" class="hidden" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;">
+            </div>
+
+            <form id="changePasswordForm" onsubmit="return changePassword(event)">
+              <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label for="currentPassword">Current Password</label>
+                  <input type="password" id="currentPassword" placeholder="Enter current password" required style="width:100%; box-sizing:border-box;" />
+                </div>
+                <div class="form-group">
+                  <label for="newPassword">New Password</label>
+                  <input type="password" id="newPassword" placeholder="Min 6 characters" required minlength="6" style="width:100%; box-sizing:border-box;" />
+                </div>
+                <div class="form-group">
+                  <label for="confirmPassword">Confirm New Password</label>
+                  <input type="password" id="confirmPassword" placeholder="Re-enter new password" required minlength="6" style="width:100%; box-sizing:border-box;" />
+                </div>
+              </div>
+              <button type="submit" id="changePasswordBtn" class="btn primary" style="margin-top: 12px;">🔑 Change Password</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <%- include('partials/footer') %>
+
+      <script>
+        async function load() {
+          try {
+            const u = await fetch('/session-info').then(r => r.json());
+            if (!u.user) { location.href = '/login'; return; }
+
+            const nameText = document.getElementById('nameText');
+            if (nameText) nameText.textContent = u.user.name;
+
+            document.getElementById('email').textContent = u.user.email;
+
+            const displayName = document.getElementById('displayName');
+            if (displayName) displayName.textContent = u.user.name;
+            const displayEmail = document.getElementById('displayEmail');
+            if (displayEmail) displayEmail.textContent = u.user.email;
+
+            const roleBadge = document.getElementById('roleBadge');
+            if (roleBadge) {
+              roleBadge.textContent = u.user.role;
+              roleBadge.className = 'badge ' + u.user.role.toLowerCase();
+            }
+
+            // Profile picture fallback logic
+            const profilePicImg = document.getElementById('profilePic');
+            const noProfilePic = document.getElementById('noProfilePic');
+            const avatarInitial = document.getElementById('avatarInitial');
+
+            if (u.user.profilePicture) {
+              // Support both Cloudinary URLs (https://...) and old local paths
+              const picUrl = u.user.profilePicture;
+              profilePicImg.src = picUrl.startsWith('http') ? picUrl : '/' + picUrl;
+              profilePicImg.style.display = 'block';
+              noProfilePic.style.display = 'none';
+            } else {
+              profilePicImg.style.display = 'none';
+              noProfilePic.style.display = 'flex';
+              if (avatarInitial && u.user.name) {
+                avatarInitial.textContent = u.user.name.charAt(0).toUpperCase();
+              }
+            }
+          } catch (err) {
+            console.error("Failed to load profile details:", err);
+          }
+        }
+
+        window.onload = load;
+
+        // Profile picture upload logic
+        document.addEventListener('DOMContentLoaded', () => {
+          const uploadInput = document.getElementById('profileUpload');
+          if (uploadInput) {
+            uploadInput.addEventListener('change', async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+
+              const formData = new FormData();
+              formData.append('profilePicture', file);
+
+              try {
+                document.querySelector('.profile-avatar-container').style.opacity = '0.5';
+
+                const response = await fetch('/api/profile/upload-picture', {
+                  method: 'POST',
+                  body: formData
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  if (result.profilePicture) {
+                    const profilePicImg = document.getElementById('profilePic');
+                    const picUrl = result.profilePicture;
+                    profilePicImg.src = picUrl.startsWith('http') ? picUrl : '/' + picUrl;
+                    profilePicImg.style.display = 'block';
+                    document.getElementById('noProfilePic').style.display = 'none';
+
+                    if (typeof showNotification === 'function') {
+                      showNotification('Profile picture updated successfully!', 'success');
+                    } else {
+                      alert('Profile picture updated successfully!');
+                    }
+
+                    // If navbar has a profile picture, reload page after a brief delay to update it across the UI
+                    setTimeout(() => window.location.reload(), 1500);
+                  }
+                } else {
+                  const err = await response.json();
+                  if (typeof showNotification === 'function') {
+                    showNotification(err.error || 'Upload failed', 'error');
+                  } else {
+                    alert(err.error || 'Upload failed');
+                  }
+                }
+              } catch (error) {
+                console.error('Error uploading:', error);
+                if (typeof showNotification === 'function') {
+                  showNotification('Error uploading picture', 'error');
+                } else {
+                  alert('Error uploading picture');
+                }
+              } finally {
+                document.querySelector('.profile-avatar-container').style.opacity = '1';
+                uploadInput.value = ''; // Reset input
+              }
+            });
+          }
+        });
+        
+        // Name edit functionality
+        function toggleNameEdit() {
+          const displayContainer = document.getElementById('nameDisplayContainer');
+          const editForm = document.getElementById('nameEditForm');
+          const editBtn = document.getElementById('editNameBtn');
+          if (editForm.classList.contains('hidden')) {
+            editForm.classList.remove('hidden');
+            displayContainer.style.display = 'none';
+            editBtn.style.display = 'none';
+          } else {
+            editForm.classList.add('hidden');
+            displayContainer.style.display = 'block';
+            editBtn.style.display = 'block';
+          }
+        }
+
+        async function saveName() {
+          const newName = document.getElementById('newNameInput').value;
+          if (!newName.trim()) {
+            if (typeof showNotification === 'function') showNotification('Name cannot be empty', 'error');
+            return;
+          }
+          
+          try {
+            const res = await fetch('/api/profile/update-name', {
+              method: 'POST', 
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: newName })
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              document.getElementById('nameText').textContent = data.name;
+              document.getElementById('displayName').textContent = data.name;
+              toggleNameEdit();
+              if (typeof showNotification === 'function') showNotification('Name updated successfully!', 'success');
+              
+              // Brief delay to allow notification then reload to sync navbar
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              const err = await res.json();
+              if (typeof showNotification === 'function') showNotification(err.error || 'Failed to update name', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            if (typeof showNotification === 'function') showNotification('Error updating name', 'error');
+          }
+        }
+
+        async function changePassword(event) {
+          event.preventDefault();
+
+          const currentPassword = document.getElementById('currentPassword').value;
+          const newPassword = document.getElementById('newPassword').value;
+          const confirmPassword = document.getElementById('confirmPassword').value;
+          const successEl = document.getElementById('passwordSuccess');
+          const errorEl = document.getElementById('passwordError');
+          const btn = document.getElementById('changePasswordBtn');
+
+          // Hide previous messages
+          successEl.classList.add('hidden');
+          errorEl.classList.add('hidden');
+
+          if (!currentPassword || !newPassword || !confirmPassword) {
+            errorEl.textContent = 'All fields are required';
+            errorEl.classList.remove('hidden');
+            return false;
+          }
+
+          if (newPassword.length < 6) {
+            errorEl.textContent = 'New password must be at least 6 characters';
+            errorEl.classList.remove('hidden');
+            return false;
+          }
+
+          if (newPassword !== confirmPassword) {
+            errorEl.textContent = 'New passwords do not match';
+            errorEl.classList.remove('hidden');
+            return false;
+          }
+
+          try {
+            btn.disabled = true;
+            btn.textContent = '🔄 Changing...';
+
+            const res = await fetch('/api/profile/change-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+              successEl.classList.remove('hidden');
+              document.getElementById('changePasswordForm').reset();
+              if (typeof showNotification === 'function') showNotification('Password changed successfully!', 'success');
+            } else {
+              errorEl.textContent = data.error || 'Failed to change password';
+              errorEl.classList.remove('hidden');
+            }
+          } catch (err) {
+            console.error('Error changing password:', err);
+            errorEl.textContent = 'An error occurred. Please try again.';
+            errorEl.classList.remove('hidden');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '🔑 Change Password';
+          }
+
+          return false;
+        }
+      </script>
+</body>
+
+</html>

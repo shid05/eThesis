@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <%- include("partials/head") %>
+  <title>Published Thesis - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</head>
+
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+
+    <main class="container">
+      <!-- Header Section -->
+      <div class="card theses-header">
+        <div class="theses-header-content">
+          <div class="theses-title-section">
+            <h2>📚 Published Thesis</h2>
+            <p class="muted">Explore our collection of peer-reviewed academic research. All thesis have been approved
+              and are available for review.</p>
+          </div>
+          <div class="theses-stats">
+            <div class="stat-badge">
+              <span class="stat-number" id="totalCount">0</span>
+              <span class="stat-label">Total Thesis</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enhanced Search and Filter Section -->
+        <div class="search-section">
+          <div class="search-filters enhanced">
+            <div class="search-container">
+              <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Search thesis by title or author..."
+                  class="search-input enhanced" />
+              </div>
+              <select id="sortSelect" class="sort-select enhanced" title="Sort thesis by">
+                <option value="newest">📅 Newest First</option>
+                <option value="oldest">📅 Oldest First</option>
+                <option value="title">🔤 By Title</option>
+              </select>
+            </div>
+            <div class="quick-filters">
+              <button type="button" onclick="clearFilters()" class="btn ghost sm">Clear All</button>
+              <button type="button" onclick="showAdvancedFilters()" id="advancedFilterBtn"
+                class="btn outline sm">Advanced Filters</button>
+            </div>
+          </div>
+
+          <!-- Advanced Filters Panel -->
+          <div id="advancedFiltersPanel" class="card margin-top-16 hidden" style="padding: 16px;">
+            <h4
+              style="margin-top:0; margin-bottom: 12px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+              Advanced Filtering Options</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="filterCategory" style="font-size: 12px;">Category</label>
+                <select id="filterCategory" class="sort-select enhanced" style="width: 100%;" onchange="filterTheses()">
+                  <option value="">All Categories</option>
+                  <option value="Thesis">Thesis</option>
+                  <option value="Capstone">Capstone</option>
+                  <option value="Research">Research</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="filterCourse" style="font-size: 12px;">Course / Strand</label>
+                <select id="filterCourse" class="sort-select enhanced" style="width: 100%;" onchange="filterTheses()">
+                  <option value="">All Courses</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="filterAdviser" style="font-size: 12px;">Adviser Name</label>
+                <input type="text" id="filterAdviser" class="search-input enhanced"
+                  style="width: 100%; border-radius: 6px; padding: 6px 12px;" placeholder="Filter by adviser name..."
+                  oninput="filterTheses()" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingIndicator" class="center loading-container enhanced">
+        <div class="loading-content">
+          <div class="loading-spinner"></div>
+          <p>Loading thesis...</p>
+        </div>
+      </div>
+
+      <!-- Thesis List -->
+      <ul id="list" class="thesis-list hidden"></ul>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="center flex-col gap-20 empty-state enhanced hidden">
+        <div class="empty-icon">📭</div>
+        <h3 class="muted">No thesis found</h3>
+        <p class="muted">No thesis match your search criteria or none have been published yet.</p>
+        <button type="button" onclick="clearFilters()" class="btn outline">Clear Filters</button>
+      </div>
+    </main>
+
+    <%- include('partials/footer') %>
+
+      <script>
+        let allTheses = [];
+
+        async function loadTheses() {
+          try {
+            const res = await fetch('/thesis/api');
+            allTheses = await res.json();
+
+            // Extract unique courses for dropdown
+            const courses = new Set();
+            allTheses.forEach(t => {
+              if (t.course) courses.add(t.course.trim().toUpperCase());
+            });
+            const filterCourse = document.getElementById('filterCourse');
+            if (filterCourse) {
+              filterCourse.innerHTML = '<option value="">All Courses</option>';
+
+              [...courses].sort().forEach(c => {
+                const option = document.createElement('option');
+                option.value = c;
+                option.textContent = c;
+                filterCourse.appendChild(option);
+              });
+            }
+
+            displayTheses(allTheses);
+          } catch (error) {
+            console.error('Error loading thesis:', error);
+            document.getElementById('loadingIndicator').innerHTML = `<p class="text-danger">Error loading thesis: ${error.message}</p>`;
+          }
+        }
+
+        function displayTheses(theses) {
+          const list = document.getElementById('list');
+          const loadingIndicator = document.getElementById('loadingIndicator');
+          const emptyState = document.getElementById('emptyState');
+          const totalCount = document.getElementById('totalCount');
+
+          loadingIndicator.classList.add('hidden');
+
+          // Update total count
+          totalCount.textContent = theses.length;
+
+          if (theses.length === 0) {
+            list.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            return;
+          }
+
+          list.classList.remove('hidden');
+          emptyState.classList.add('hidden');
+          list.innerHTML = '';
+
+          theses.forEach(thesis => {
+            if (!thesis || !thesis._id || !thesis.title) return;
+
+            const li = document.createElement('li');
+            li.className = 'thesis-row';
+
+            const abstract = thesis.abstract || '';
+            const truncatedAbstract = abstract.length > 120
+              ? abstract.substring(0, 120) + '...'
+              : abstract;
+
+            const createdAt = new Date(thesis.createdAt).toLocaleDateString();
+
+            li.innerHTML = `
+          <a href="/thesis/${thesis._id}" class="thesis-row-link">
+            <div class="thesis-row-main">
+              <h3 class="thesis-row-title">${thesis.title}</h3>
+              <p class="thesis-row-abstract">${truncatedAbstract || 'No abstract provided.'}</p>
+              <div class="thesis-row-meta">
+                <span class="thesis-row-meta-item">👥 ${thesis.authorsName || thesis.author?.name || 'Unknown'}</span>
+                ${thesis.yearPublished ? `<span class="thesis-row-meta-item">🎓 ${thesis.yearPublished}</span>` : ''}
+                <span class="thesis-row-meta-item">📅 Uploaded: ${createdAt}</span>
+                ${thesis.adviser ? `<span class="thesis-row-meta-item">👨‍🏫 ${thesis.adviser}</span>` : ''}
+              </div>
+            </div>
+            <div class="thesis-row-side">
+              <div class="thesis-row-badges">
+                <span class="badge outline">${thesis.category || 'Thesis'}</span>
+                <span class="badge outline">${thesis.course || 'Course'}</span>
+              </div>
+              <span class="thesis-row-arrow">→</span>
+            </div>
+          </a>
+        `;
+
+            list.appendChild(li);
+          });
+        }
+
+        function clearFilters() {
+          document.getElementById('searchInput').value = '';
+          document.getElementById('sortSelect').value = 'newest';
+          document.getElementById('filterCategory').value = '';
+          document.getElementById('filterCourse').value = '';
+          document.getElementById('filterAdviser').value = '';
+          filterTheses();
+        }
+
+        function showAdvancedFilters() {
+          const panel = document.getElementById('advancedFiltersPanel');
+          panel.classList.toggle('hidden');
+          const btn = document.getElementById('advancedFilterBtn');
+          if (btn) btn.classList.toggle('active-filter');
+        }
+
+        function filterTheses() {
+          const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+          const sortBy = document.getElementById('sortSelect').value;
+          const fCategory = document.getElementById('filterCategory').value;
+          const fCourse = document.getElementById('filterCourse').value;
+          const fAdviser = document.getElementById('filterAdviser').value.toLowerCase();
+
+          let filteredTheses = allTheses.filter(thesis => {
+            const matchesSearch = thesis.title.toLowerCase().includes(searchTerm) ||
+              (thesis.author?.name || '').toLowerCase().includes(searchTerm) ||
+              (thesis.authorsName || '').toLowerCase().includes(searchTerm);
+            const matchesCategory = fCategory ? thesis.category === fCategory : true;
+            const matchesCourse = fCourse ? (thesis.course || '').toUpperCase() === fCourse : true;
+            const matchesAdviser = fAdviser ? (thesis.adviser || '').toLowerCase().includes(fAdviser) : true;
+            return matchesSearch && matchesCategory && matchesCourse && matchesAdviser;
+          });
+
+          // Sort theses
+          switch (sortBy) {
+            case 'newest':
+              filteredTheses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              break;
+            case 'oldest':
+              filteredTheses.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+              break;
+            case 'title':
+              filteredTheses.sort((a, b) => a.title.localeCompare(b.title));
+              break;
+          }
+
+          displayTheses(filteredTheses);
+        }
+
+        // Auto-filter on input + enhance navbar with role shortcuts
+        document.addEventListener('DOMContentLoaded', async () => {
+          const searchInput = document.getElementById('searchInput');
+          const sortSelect = document.getElementById('sortSelect');
+          const uploadLink = document.getElementById('uploadLink');
+          const authLinks = document.getElementById('authLinks');
+
+          searchInput?.addEventListener('input', filterTheses);
+          sortSelect?.addEventListener('change', filterTheses);
+
+          try {
+            const u = await fetch('/session-info').then(r => r.json());
+
+            if (u?.user) {
+              // Set current user for real-time features
+              setCurrentUser(u.user);
+
+              // Hide upload for non-students
+              if (u.user.role !== 'Student' && uploadLink) {
+                uploadLink.style.display = 'none';
+              }
+            }
+          } catch { }
+        });
+
+        window.onload = loadTheses;
+      </script>
+</body>
+
+</html>

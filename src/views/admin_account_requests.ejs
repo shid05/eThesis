@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Account Requests - Admin</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <style>
+    .request-card {
+      padding: 20px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    }
+    .request-card:hover { border-color: rgba(255,255,255,0.15); }
+    .request-card.processed { opacity: 0.6; }
+    .request-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .request-name { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin: 0; }
+    .request-details { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+    .request-detail { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #94a3b8; }
+    .request-detail .detail-icon { font-size: 0.9rem; }
+    .request-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .no-requests { text-align: center; padding: 40px 20px; color: #64748b; }
+    .no-requests .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .approve-modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;
+      backdrop-filter: blur(4px);
+    }
+    .approve-modal-content {
+      background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 28px; max-width: 460px; width: 90%;
+    }
+    .approve-modal-content h3 { margin: 0 0 8px 0; }
+    .approve-modal-content p { color: #94a3b8; margin: 0 0 20px 0; font-size: 0.9rem; }
+    .approve-modal-content .form-group { margin-bottom: 16px; }
+    .approve-modal-content label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+    .approve-modal-content input, .approve-modal-content textarea {
+      width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05); color: #f1f5f9; font-size: 0.9rem;
+      box-sizing: border-box;
+    }
+    .approve-modal-content input:focus, .approve-modal-content textarea:focus {
+      outline: none; border-color: rgba(99,102,241,0.5);
+    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card">
+      <h2>📧 Account Requests</h2>
+      <div id="loadingIndicator" class="text-muted center">Loading account requests...</div>
+      <div id="list" class="stack"></div>
+    </div>
+
+    <!-- Account Retrieval Sub-section -->
+    <div class="card" style="margin-top:0;">
+      <h2>🔑 Account Retrieval</h2>
+      <p class="muted" style="margin-bottom:20px;">Password reset requests submitted via the Forgot Password form. Approve to send a reset link, or reject to deny.</p>
+      <div id="retrievalLoading" class="text-muted center">Loading retrieval requests...</div>
+      <div id="retrievalList" class="stack"></div>
+    </div>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <!-- Approve Modal -->
+  <div id="approveModal" class="approve-modal-overlay">
+    <div class="approve-modal-content">
+      <h3>✅ Approve Account Request</h3>
+      <p>Create a login password for <strong id="approveUserName"></strong> (<span id="approveUserEmail"></span>)</p>
+      <div class="form-group">
+        <label for="approvePassword">Login Password (min 6 characters)</label>
+        <input type="text" id="approvePassword" placeholder="Enter a password for this user" minlength="6" />
+      </div>
+      <div class="form-group">
+        <label for="approveNotes">Notes (optional)</label>
+        <textarea id="approveNotes" rows="2" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn success" id="confirmApproveBtn" onclick="confirmApprove()">✅ Approve & Create Account</button>
+        <button class="btn ghost" onclick="hideApproveModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Modal -->
+  <div id="rejectModal" class="approve-modal-overlay">
+    <div class="approve-modal-content">
+      <h3>❌ Reject Account Request</h3>
+      <p>Reject the request from <strong id="rejectUserName"></strong></p>
+      <div class="form-group">
+        <label for="rejectReason">Reason (optional)</label>
+        <textarea id="rejectReason" rows="3" placeholder="Reason for rejection..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn danger" id="confirmRejectBtn" onclick="confirmReject()">❌ Reject Request</button>
+        <button class="btn ghost" onclick="hideRejectModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retrieval Approve Modal -->
+  <div id="retrievalApproveModal" class="approve-modal-overlay">
+    <div class="approve-modal-content">
+      <h3>✅ Approve Password Reset</h3>
+      <p>Approve the password reset for <strong id="retrievalApproveName"></strong> (<span id="retrievalApproveEmail"></span>)?</p>
+      <p style="color:var(--muted); font-size:0.85rem;">A secure, time-limited password reset link will be sent to their email address.</p>
+      <div class="modal-actions">
+        <button class="btn success" id="confirmRetrievalApproveBtn" onclick="confirmRetrievalApprove()">✅ Approve & Send Link</button>
+        <button class="btn ghost" onclick="hideRetrievalApproveModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retrieval Reject Modal -->
+  <div id="retrievalRejectModal" class="approve-modal-overlay">
+    <div class="approve-modal-content">
+      <h3>❌ Reject Password Reset</h3>
+      <p>Reject the reset request from <strong id="retrievalRejectName"></strong>?</p>
+      <div class="modal-actions">
+        <button class="btn danger" id="confirmRetrievalRejectBtn" onclick="confirmRetrievalReject()">❌ Reject Request</button>
+        <button class="btn ghost" onclick="hideRetrievalRejectModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let currentRequestId = null;
+    let currentRetrievalId = null;
+
+    async function load() {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const list = document.getElementById('list');
+      
+      if (loadingIndicator) loadingIndicator.style.display = 'block';
+      if (list) list.innerHTML = '';
+      
+      try {
+        const res = await fetch('/api/admin/account-requests');
+        if (!res.ok) {
+          if (loadingIndicator) loadingIndicator.style.display = 'none';
+          if (list) list.innerHTML = '<div class="card center"><p class="text-danger">❌ Failed to load account requests. Please refresh.</p></div>';
+          return;
+        }
+        
+        const data = await res.json();
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div class="no-requests"><div class="empty-icon">📭</div><p>No account requests found</p></div>';
+          return;
+        }
+
+        // Pending first, then processed
+        const sorted = [...data].sort((a, b) => {
+          if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+          if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+        sorted.forEach(request => {
+          const card = document.createElement('div');
+          card.className = `request-card ${request.status !== 'Pending' ? 'processed' : ''}`;
+
+          const statusClass = request.status === 'Pending' ? 'warning' : request.status === 'Approved' ? 'success' : 'danger';
+          const escapedName = (request.name || '').replace(/'/g, "\\'");
+
+          card.innerHTML = `
+            <div class="request-header">
+              <h3 class="request-name">${request.name || 'Unknown'}</h3>
+              <span class="badge ${statusClass}">${request.status}</span>
+            </div>
+            <div class="request-details">
+              <div class="request-detail">
+                <span class="detail-icon">📧</span>
+                <span>${request.email || 'No email'}</span>
+              </div>
+              <div class="request-detail">
+                <span class="detail-icon">🎭</span>
+                <span class="badge outline">${request.role || 'Student'}</span>
+              </div>
+              <div class="request-detail">
+                <span class="detail-icon">📅</span>
+                <span>${new Date(request.createdAt).toLocaleDateString()}</span>
+              </div>
+              ${request.processedAt ? `
+                <div class="request-detail">
+                  <span class="detail-icon">⏱️</span>
+                  <span>Processed: ${new Date(request.processedAt).toLocaleDateString()}</span>
+                </div>
+              ` : ''}
+              ${request.notes ? `
+                <div class="request-detail" style="width:100%;">
+                  <span class="detail-icon">📝</span>
+                  <span>${request.notes}</span>
+                </div>
+              ` : ''}
+            </div>
+            ${request.status === 'Pending' ? `
+              <div class="request-actions">
+                <button class="btn sm success" onclick="showApproveModal('${request._id}', '${escapedName}', '${request.email}')">✅ Approve</button>
+                <button class="btn sm danger" onclick="showRejectModal('${request._id}', '${escapedName}')">❌ Reject</button>
+              </div>
+            ` : ''}
+          `;
+          list.appendChild(card);
+        });
+        
+      } catch (error) {
+        console.error('Error loading account requests:', error);
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        if (list) list.innerHTML = '<div class="card center"><p class="text-danger">Error: ' + error.message + '</p></div>';
+      }
+    }
+
+    function showApproveModal(requestId, name, email) {
+      currentRequestId = requestId;
+      document.getElementById('approveUserName').textContent = name;
+      document.getElementById('approveUserEmail').textContent = email;
+      document.getElementById('approvePassword').value = '';
+      document.getElementById('approveNotes').value = '';
+      document.getElementById('approveModal').style.display = 'flex';
+    }
+
+    function hideApproveModal() {
+      document.getElementById('approveModal').style.display = 'none';
+      currentRequestId = null;
+    }
+
+    function showRejectModal(requestId, name) {
+      currentRequestId = requestId;
+      document.getElementById('rejectUserName').textContent = name;
+      document.getElementById('rejectReason').value = '';
+      document.getElementById('rejectModal').style.display = 'flex';
+    }
+
+    function hideRejectModal() {
+      document.getElementById('rejectModal').style.display = 'none';
+      currentRequestId = null;
+    }
+
+    async function confirmApprove() {
+      const password = document.getElementById('approvePassword').value.trim();
+      const notes = document.getElementById('approveNotes').value.trim();
+
+      if (!password || password.length < 6) {
+        alert('Password must be at least 6 characters long');
+        return;
+      }
+
+      const btn = document.getElementById('confirmApproveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+
+      try {
+        const res = await fetch(`/api/admin/account-requests/${currentRequestId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password, notes })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          hideApproveModal();
+          if (data.emailSent) {
+            alert('✅ Account created and login credentials sent via email!');
+          } else {
+            alert('✅ Account created! ⚠️ Email could not be sent — please share the credentials manually.');
+          }
+          load();
+        } else {
+          alert('❌ ' + (data.error || 'Failed to approve request'));
+        }
+      } catch (error) {
+        alert('❌ Network error: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Approve & Create Account';
+      }
+    }
+
+    async function confirmReject() {
+      const reason = document.getElementById('rejectReason').value.trim();
+
+      const btn = document.getElementById('confirmRejectBtn');
+      btn.disabled = true;
+      btn.textContent = 'Rejecting...';
+
+      try {
+        const res = await fetch(`/api/admin/account-requests/${currentRequestId}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          hideRejectModal();
+          alert('❌ Account request rejected.');
+          load();
+        } else {
+          alert('❌ ' + (data.error || 'Failed to reject request'));
+        }
+      } catch (error) {
+        alert('❌ Network error: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '❌ Reject Request';
+      }
+    }
+
+    // ============================================================
+    // Account Retrieval (Forgot Password) — Frontend Logic
+    // ============================================================
+
+    async function loadRetrievals() {
+      const loading = document.getElementById('retrievalLoading');
+      const list = document.getElementById('retrievalList');
+
+      if (loading) loading.style.display = 'block';
+      if (list) list.innerHTML = '';
+
+      try {
+        const res = await fetch('/api/admin/account-retrievals');
+        if (!res.ok) {
+          if (loading) loading.style.display = 'none';
+          if (list) list.innerHTML = '<div class="card center"><p class="text-danger">❌ Failed to load retrieval requests.</p></div>';
+          return;
+        }
+
+        const data = await res.json();
+        if (loading) loading.style.display = 'none';
+
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div class="no-requests"><div class="empty-icon">🔐</div><p>No pending password reset requests</p></div>';
+          return;
+        }
+
+        data.forEach(req => {
+          const card = document.createElement('div');
+          card.className = 'request-card';
+          const fullName = `${req.firstName || ''} ${req.lastName || ''}`.trim();
+          const escapedName = fullName.replace(/'/g, "\\'");
+
+          card.innerHTML = `
+            <div class="request-header">
+              <h3 class="request-name">${fullName || 'Unknown'}</h3>
+              <span class="badge warning">${req.status}</span>
+            </div>
+            <div class="request-details">
+              <div class="request-detail">
+                <span class="detail-icon">📧</span>
+                <span>${req.email || 'No email'}</span>
+              </div>
+              <div class="request-detail">
+                <span class="detail-icon">🔑</span>
+                <span class="badge outline">Password Reset</span>
+              </div>
+              <div class="request-detail">
+                <span class="detail-icon">📅</span>
+                <span>${new Date(req.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+            <div class="request-actions">
+              <button class="btn sm success" onclick="showRetrievalApproveModal('${req._id}', '${escapedName}', '${req.email}')">✅ Approve</button>
+              <button class="btn sm danger" onclick="showRetrievalRejectModal('${req._id}', '${escapedName}')">❌ Reject</button>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+
+      } catch (error) {
+        console.error('Error loading retrievals:', error);
+        if (loading) loading.style.display = 'none';
+        if (list) list.innerHTML = '<div class="card center"><p class="text-danger">Error: ' + error.message + '</p></div>';
+      }
+    }
+
+    function showRetrievalApproveModal(id, name, email) {
+      currentRetrievalId = id;
+      document.getElementById('retrievalApproveName').textContent = name;
+      document.getElementById('retrievalApproveEmail').textContent = email;
+      document.getElementById('retrievalApproveModal').style.display = 'flex';
+    }
+    function hideRetrievalApproveModal() {
+      document.getElementById('retrievalApproveModal').style.display = 'none';
+      currentRetrievalId = null;
+    }
+
+    function showRetrievalRejectModal(id, name) {
+      currentRetrievalId = id;
+      document.getElementById('retrievalRejectName').textContent = name;
+      document.getElementById('retrievalRejectModal').style.display = 'flex';
+    }
+    function hideRetrievalRejectModal() {
+      document.getElementById('retrievalRejectModal').style.display = 'none';
+      currentRetrievalId = null;
+    }
+
+    async function confirmRetrievalApprove() {
+      const btn = document.getElementById('confirmRetrievalApproveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending reset link...';
+
+      try {
+        const res = await fetch(`/api/admin/account-retrievals/${currentRetrievalId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          hideRetrievalApproveModal();
+          alert(data.emailSent
+            ? '✅ Password reset link sent to the user\'s email!'
+            : '✅ Approved but email could not be sent. Please notify the user manually.');
+          loadRetrievals();
+        } else {
+          alert('❌ ' + (data.error || 'Failed to approve'));
+        }
+      } catch (error) {
+        alert('❌ Network error: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Approve & Send Link';
+      }
+    }
+
+    async function confirmRetrievalReject() {
+      const btn = document.getElementById('confirmRetrievalRejectBtn');
+      btn.disabled = true;
+      btn.textContent = 'Rejecting...';
+
+      try {
+        const res = await fetch(`/api/admin/account-retrievals/${currentRetrievalId}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          hideRetrievalRejectModal();
+          alert('❌ Password reset request rejected.');
+          loadRetrievals();
+        } else {
+          alert('❌ ' + (data.error || 'Failed to reject'));
+        }
+      } catch (error) {
+        alert('❌ Network error: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '❌ Reject Request';
+      }
+    }
+
+    window.onload = function() {
+      load();
+      loadRetrievals();
+    };
+  </script>
+</body>
+</html>

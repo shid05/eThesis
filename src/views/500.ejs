@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Server Error - LNC Research Archives</title>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card center flex-col gap-20 min-height-40vh">
+      <div class="error-icon">⚠️</div>
+      <h2 class="text-danger">Something Went Wrong</h2>
+      <p class="muted">An unexpected error occurred on our end. Please try again in a moment.</p>
+      <% if (message) { %>
+        <pre style="font-size:0.8rem; color:var(--muted); background:var(--bg-secondary); padding:16px; border-radius:8px; max-width:600px; overflow:auto; text-align:left;"><%= message %></pre>
+      <% } %>
+      <div class="action-bar">
+        <a href="/" class="btn primary">🏠 Go Home</a>
+        <a href="javascript:history.back()" class="btn outline">← Go Back</a>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

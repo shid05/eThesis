@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Manage Users - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card">
+      <h2>👥 Manage Users</h2>
+      
+      <!-- Search Bar -->
+      <div style="margin-bottom: 20px;">
+        <input 
+          type="text" 
+          id="userSearch" 
+          class="form-input" 
+          placeholder="🔍 Search users by name..." 
+          oninput="filterUsers()"
+          style="width: 100%; padding: 12px 16px; font-size: 0.95rem;"
+        />
+      </div>
+      
+      <div id="usersList" class="stack">
+        <div class="text-muted center">Loading users...</div>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal-overlay" style="display:none;">
+    <div class="card modal-content-large">
+      <h3>🗑️ Confirm User Deletion</h3>
+      <p>You are about to permanently delete <strong id="deleteUserName"></strong> and all their associated data. This cannot be undone.</p>
+      <div class="form-group" style="margin-top: 16px;">
+        <label for="adminPasswordInput">Enter your admin password to confirm</label>
+        <input
+          type="password"
+          id="adminPasswordInput"
+          class="form-input"
+          placeholder="Your password"
+          autocomplete="current-password"
+          style="margin-top: 8px;"
+        />
+        <p id="deletePasswordError" class="text-danger" style="margin-top: 6px; font-size: 0.85rem; display:none;"></p>
+      </div>
+      <div class="flex-wrap gap-12 margin-top-20">
+        <button type="button" id="confirmDeleteBtn" class="btn danger">🗑️ Delete User</button>
+        <button type="button" class="btn ghost" onclick="hideDeleteModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let allUsers = [];
+    
+    async function onLoad() {
+      try {
+        const userResponse = await fetch('/session-info');
+        const userData = await userResponse.json();
+        
+        if (!userData || !userData.user || userData.user.role !== 'Admin') {
+          window.location.href = '/';
+          return;
+        }
+        
+        // Set current user for real-time features
+        setCurrentUser(userData.user);
+        
+        // Load users
+        await loadUsers();
+        
+      } catch (error) {
+        console.error('Error loading admin users page:', error);
+        showNotification('Error loading users', 'error');
+      }
+    }
+    
+    async function loadUsers() {
+      try {
+        const response = await fetch('/api/admin/users');
+        allUsers = await response.json();
+        renderUsers(allUsers);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        const usersList = document.getElementById('usersList');
+        if (usersList) {
+          usersList.innerHTML = '<p class="text-danger">Error loading users</p>';
+        }
+      }
+    }
+    
+    function filterUsers() {
+      const query = document.getElementById('userSearch').value.trim().toLowerCase();
+      if (!query) {
+        renderUsers(allUsers);
+        return;
+      }
+      const filtered = allUsers.filter(u => u.name.toLowerCase().includes(query));
+      renderUsers(filtered);
+    }
+    
+    function renderUsers(users) {
+      const usersList = document.getElementById('usersList');
+      if (!usersList) return;
+      
+      if (users.length > 0) {
+        usersList.innerHTML = users.map(currentUser => `
+          <div class="card">
+            <h3>👤 ${currentUser.name}</h3>
+            <p class="muted" style="display:flex; align-items:center; gap:8px;">
+              Role: 
+              <select class="form-input" style="width: auto; padding: 2px 8px; font-size:12px; height: 28px;" onchange="updateRole('${currentUser._id}', this.value)">
+                <option value="Student" ${currentUser.role === 'Student' ? 'selected' : ''}>Student</option>
+                <option value="Teacher" ${currentUser.role === 'Teacher' ? 'selected' : ''}>Teacher</option>
+                <option value="Admin" ${currentUser.role === 'Admin' ? 'selected' : ''}>Admin</option>
+              </select>
+            </p>
+            <p class="muted">Email: ${currentUser.email}</p>
+            <p class="muted">Joined: ${new Date(currentUser.createdAt).toLocaleDateString()}</p>
+            <div class="flex-wrap gap-12 margin-top-16">
+              <a href="javascript:void(0)" onclick="deleteUser('${currentUser._id}', '${currentUser.name.replace(/'/g, "\\'")}')" class="btn sm danger">🗑️ Delete</a>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        usersList.innerHTML = '<div class="text-muted center">No users found</div>';
+      }
+    }
+    
+    async function updateRole(userId, newRole) {
+      if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+        loadUsers(); // Reset UI
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/users/role', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, role: newRole })
+        });
+        if (res.ok) {
+          showNotification('Role updated successfully', 'success');
+          loadUsers();
+        } else {
+          showNotification('Failed to update role', 'error');
+          loadUsers();
+        }
+      } catch (e) {
+        showNotification('Error updating role', 'error');
+        loadUsers();
+      }
+    }
+    
+    function deleteUser(userId, userName) {
+      document.getElementById('deleteUserName').textContent = userName;
+      document.getElementById('adminPasswordInput').value = '';
+      document.getElementById('deletePasswordError').style.display = 'none';
+      document.getElementById('deleteModal').style.display = 'flex';
+
+      const btn = document.getElementById('confirmDeleteBtn');
+      btn.onclick = async function () {
+        const password = document.getElementById('adminPasswordInput').value;
+        if (!password) {
+          const err = document.getElementById('deletePasswordError');
+          err.textContent = 'Please enter your password.';
+          err.style.display = 'block';
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Deleting...';
+        try {
+          const response = await fetch(`/api/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            hideDeleteModal();
+            showNotification('User deleted successfully', 'success');
+            loadUsers();
+          } else {
+            const err = document.getElementById('deletePasswordError');
+            err.textContent = data.error || 'Failed to delete user.';
+            err.style.display = 'block';
+          }
+        } catch (error) {
+          showNotification('Error deleting user', 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🗑️ Delete User';
+        }
+      };
+    }
+
+    function hideDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+    }
+    
+    window.onload = onLoad;
+  </script>
+</body>
+</html>
+

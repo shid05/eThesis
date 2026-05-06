@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <%- include("partials/head") %>
+    <meta name="description"
+      content="Learn about LNC Research Archives - a thesis and capstone repository for Laguna Northwestern College." />
+    <title>About - LNC Research Archives</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/public/js/notifications.js"></script>
+</head>
+
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+
+    <main class="container">
+      <!-- Page Header -->
+      <div class="card highlight">
+        <h1>📖 About LNC Research Archives</h1>
+        <p class="hero-subtitle">Our mission is to provide a centralized, accessible platform for academic research
+          produced by students and faculty of Laguna Northwestern College.</p>
+      </div>
+
+      <!-- What We Do -->
+      <div class="grid">
+        <div class="card feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Our Mission</h3>
+          <p class="muted">To promote academic excellence by making thesis and capstone research easily discoverable,
+            reviewable, and reusable for future scholars.</p>
+        </div>
+
+        <div class="card feature-card">
+          <div class="feature-icon">🏛️</div>
+          <h3>Our Institution</h3>
+          <p class="muted">Laguna Northwestern College – San Lorenzo Ruiz Montessori Center is committed to fostering
+            research-driven learning in Information Technology and related fields.</p>
+        </div>
+
+        <div class="card feature-card">
+          <div class="feature-icon">🔗</div>
+          <h3>Open Repository</h3>
+          <p class="muted">We believe in open access to academic knowledge. Browse approved thesis, read peer reviews,
+            and contribute your own research to the community.</p>
+        </div>
+      </div>
+
+      <!-- How It Works -->
+      <div class="card">
+        <h2>🔄 How It Works</h2>
+        <div class="stack" style="gap: 16px; margin-top: 8px;">
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <span class="badge" style="min-width: 32px; text-align: center;">1</span>
+            <div>
+              <strong>Upload</strong>
+              <p class="muted" style="margin: 4px 0 0;">Students submit their thesis or capstone project with all
+                required details and documentation.</p>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <span class="badge" style="min-width: 32px; text-align: center;">2</span>
+            <div>
+              <strong>Review</strong>
+              <p class="muted" style="margin: 4px 0 0;">Advisers and peer reviewers evaluate the submission for quality,
+                accuracy, and academic rigor.</p>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <span class="badge success" style="min-width: 32px; text-align: center;">3</span>
+            <div>
+              <strong>Publish</strong>
+              <p class="muted" style="margin: 4px 0 0;">Approved thesis are published to the repository, making them
+                searchable and accessible to all users.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Development Team -->
+      <div class="card" style="text-align: center;">
+        <h2>👨‍💻 Development Team</h2>
+        <p class="muted" style="margin-bottom: 16px;">This platform was developed as a BS Information Technology
+          capstone project.</p>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;">
+          <a href="https://www.facebook.com/franzraschid/" target="_blank" class="btn sm ghost">Franz Raschid Loyola</a>
+          <a href="https://www.facebook.com/Unknown.user.00.00x" target="_blank" class="btn sm ghost">Hanz Villegas</a>
+          <a href="https://www.facebook.com/chrls.drwin" target="_blank" class="btn sm ghost">Charles Darwin Garcia</a>
+          <a href="https://www.facebook.com/search/top?q=jeyem%20aquino" target="_blank" class="btn sm ghost">John
+            Michael Aquino</a>
+          <a href="https://www.facebook.com/aira.francisco.311" target="_blank" class="btn sm ghost">Aira Joy
+            Francisco</a>
+        </div>
+        <p class="muted" style="margin-top: 16px;"><strong>Adviser:</strong> Mr. Michael Rojo</p>
+      </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+
+</html>

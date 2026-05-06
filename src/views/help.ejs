@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <%- include("partials/head") %>
+    <meta name="description" content="Get help using LNC Research Archives - FAQs, guides, and troubleshooting tips." />
+    <title>Help - LNC Research Archives</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/public/js/notifications.js"></script>
+</head>
+
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+
+    <main class="container">
+      <!-- Page Header -->
+      <div class="card highlight">
+        <h1>❓ Help Center</h1>
+        <p class="hero-subtitle">Find answers to common questions, learn how to use the platform, and get the support
+          you need.</p>
+      </div>
+
+      <!-- FAQ Section -->
+      <div class="card">
+        <h2>📋 Frequently Asked Questions</h2>
+        <div class="stack" style="gap: 20px; margin-top: 12px;">
+
+          <div style="border-left: 3px solid var(--primary); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">How do I create an account?</h4>
+            <p class="muted" style="margin: 0;">Click <strong>"Request Account"</strong> in the navigation bar. Fill in
+              your details and wait for an administrator to approve your request. You'll receive an email once your
+              account is ready.</p>
+          </div>
+
+          <div style="border-left: 3px solid var(--accent); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">How do I upload a thesis?</h4>
+            <p class="muted" style="margin: 0;">After logging in as a <strong>Student</strong>, click <strong>"Upload
+                Thesis"</strong> in the navbar. Fill in all required fields including title, abstract, course, and
+              upload your document file.</p>
+          </div>
+
+          <div style="border-left: 3px solid var(--success); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">How does the review process work?</h4>
+            <p class="muted" style="margin: 0;">Once a thesis is submitted, it enters a <strong>Pending</strong> state.
+              Advisers and designated reviewers can then evaluate the work. After approval, the thesis becomes publicly
+              visible in the repository.</p>
+          </div>
+
+          <div style="border-left: 3px solid var(--warning); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">Can I edit my thesis after submission?</h4>
+            <p class="muted" style="margin: 0;">No. But you can edit your thesis if the thesis is still in <strong>Pending</strong> status, you
+              can edit its details. Once it has been approved, you cannot edit it anymore.</p>
+          </div>
+
+          <div style="border-left: 3px solid var(--danger); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">I forgot my password. What should I do?</h4>
+            <p class="muted" style="margin: 0;">For faster process, please contact the designated administrator in your institution to have your
+              password reset.</p>
+          </div>
+
+          <div style="border-left: 3px solid var(--primary-light); padding-left: 16px;">
+            <h4 style="margin-bottom: 4px;">Who can review thesis?</h4>
+            <p class="muted" style="margin: 0;">All authenticated users can leave reviews on <strong>approved</strong>
+              thesis. Teachers and advisers can also review thesis that are still pending approval.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Roles Guide -->
+      <div class="card">
+        <h2>🎭 User Roles</h2>
+        <p class="muted">The platform supports three roles, each with different permissions:</p>
+        <div class="grid" style="margin-top: 16px;">
+          <div class="card" style="border-color: var(--primary);">
+            <h3 style="color: var(--primary-light);">🎓 Student</h3>
+            <ul
+              style="color: var(--muted); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+              <li>✅ Upload/Edit thesis</li>
+              <li>✅ Review approved thesis</li>
+              <li>✅ View all approved thesis</li>
+            </ul>
+          </div>
+          <div class="card" style="border-color: var(--accent);">
+            <h3 style="color: var(--accent-light);">👨‍🏫 Teacher</h3>
+            <ul
+              style="color: var(--muted); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+              <li>✅ Review pending & approved thesis</li>
+              <li>✅ Approve/revoke advised thesis</li>
+              <li>✅ Access review queue</li>
+              <li>✅ View all thesis</li>
+            </ul>
+          </div>
+          <div class="card" style="border-color: var(--warning);">
+            <h3 style="color: var(--warning-light);">⚙️ Admin</h3>
+            <ul
+              style="color: var(--muted); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+              <li>✅ Manage all users & roles</li>
+              <li>✅ Approve account requests</li>
+              <li>✅ View dashboard & reports</li>
+              <li>✅ Full platform control</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Still Need Help -->
+      <div class="card" style="text-align: center;">
+        <h2>💬 Still Need Help?</h2>
+        <p class="muted">If you can't find the answer you're looking for, don't hesitate to reach out.</p>
+        <a href="/contact" class="btn" style="margin-top: 8px;">📧 Contact Us</a>
+      </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+
+</html>

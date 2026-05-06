@@ -1,0 +1,38 @@
+{
+  "name": "thesis-repo-peer-review",
+  "version": "1.0.0",
+  "description": "Thesis Repository System with Peer Reviews (Express + MongoDB)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "express",
+    "mongoose",
+    "thesis",
+    "reviews"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "connect-mongo": "^5.1.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^5.0.1",
+    "express": "^4.19.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.5.0",
+    "express-session": "^1.18.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.5.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.10.1",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

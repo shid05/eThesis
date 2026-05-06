@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Page Not Found - LNC Research Archives</title>
+  <script src="/public/js/notifications.js"></script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card center flex-col gap-20 min-height-40vh">
+      <div class="error-icon">🔍</div>
+      <h2 class="text-danger">Page Not Found</h2>
+      <p class="muted">The page you're looking for doesn't exist or has been moved.</p>
+      <div class="action-bar">
+        <a href="/" class="btn primary">🏠 Go Home</a>
+        <a href="/thesis" class="btn outline">📚 Browse Thesis</a>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Edit Review - LNC Research Archives</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <script>
+    async function loadExistingReview() {
+      try {
+        const id = location.pathname.split('/').pop();
+        const res = await fetch(`/reviews/api/edit/${id}`);
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          const errorMessage = errorData.error || 'Review not found';
+          document.getElementById('content').innerHTML = `
+            <div class="card center flex-col gap-20 min-height-40vh">
+              <h2 class="text-danger">Error</h2>
+              <p class="muted">${errorMessage}</p>
+              <a href="/thesis" class="btn">Back to Thesis</a>
+            </div>
+          `;
+          return;
+        }
+        
+        const review = await res.json();
+        
+        // Update thesis information
+        document.getElementById('thesisTitle').textContent = review.thesisId.title;
+        document.getElementById('thesisAuthor').textContent = review.thesisId.author?.name || 'Unknown';
+        
+        // Pre-fill the form with existing review
+        document.getElementById('comment').value = review.comment;
+        document.getElementById('ratingHidden').value = review.rating;
+        updateRating(review.rating);
+        
+        // Update form action
+        document.getElementById('form').action = `/reviews/edit/${id}`;
+        
+        // Update page title
+        document.title = `Edit Review: ${review.thesisId.title} - LNC Research Archives`;
+        
+      } catch (error) {
+        console.error('Error loading existing review:', error);
+        document.getElementById('content').innerHTML = `
+          <div class="card center flex-col gap-20 min-height-40vh">
+            <h2 class="text-danger">Error</h2>
+            <p class="muted">Failed to load review details</p>
+            <a href="/thesis" class="btn">Back to Thesis</a>
+          </div>
+        `;
+      }
+    }
+    
+    function updateRating(value) {
+      const ratingTexts = {
+        1: 'Poor',
+        2: 'Fair', 
+        3: 'Good',
+        4: 'Very Good',
+        5: 'Excellent'
+      };
+      
+      document.getElementById('ratingValue').textContent = value;
+      document.getElementById('ratingText').textContent = ratingTexts[value];
+      document.getElementById('ratingHidden').value = value;
+      
+      // Update badge color based on rating
+      const badge = document.getElementById('ratingValue');
+      badge.className = 'badge';
+      if (value >= 4) badge.classList.add('success');
+      else if (value >= 3) badge.classList.add('warning');
+      else badge.classList.add('danger');
+    }
+    
+    function validate(){
+      const rating = document.querySelector('input[name="rating"]').value;
+      const comment = document.querySelector('textarea[name="comment"]').value.trim();
+      
+      // Clear previous error messages
+      clearErrors();
+      
+      let hasErrors = false;
+      
+      if (!rating) {
+        showError('ratingSlider', 'Rating is required');
+        hasErrors = true;
+      } else if (rating < 1 || rating > 5) {
+        showError('ratingSlider', 'Rating must be between 1 and 5');
+        hasErrors = true;
+      }
+      
+      if (!comment) {
+        showError('comment', 'Review comment is required');
+        hasErrors = true;
+      } else if (comment.length < 10) {
+        showError('comment', 'Review must be at least 10 characters long');
+        hasErrors = true;
+      } else if (comment.length > 1000) {
+        showError('comment', 'Review cannot exceed 1000 characters');
+        hasErrors = true;
+      }
+      
+      if (hasErrors) {
+        return false;
+      }
+      
+      return true;
+    }
+    
+    function showError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.style.color = '#ff6b6b';
+      errorDiv.style.fontSize = '0.875rem';
+      errorDiv.style.marginTop = '4px';
+      errorDiv.textContent = message;
+      
+      field.style.borderColor = '#ff6b6b';
+      field.parentNode.appendChild(errorDiv);
+    }
+    
+    function clearErrors() {
+      const errorMessages = document.querySelectorAll('.error-message');
+      errorMessages.forEach(msg => msg.remove());
+      
+      const inputs = document.querySelectorAll('input, textarea');
+      inputs.forEach(input => {
+        input.style.borderColor = '';
+      });
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadExistingReview();
+      
+      // Set current user for real-time features
+      try {
+        const userResponse = await fetch('/session-info');
+        const userData = await userResponse.json();
+        if (userData.user) {
+          setCurrentUser(userData.user);
+        }
+      } catch (error) {
+        console.error('Error setting user:', error);
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container" id="content">
+    <div class="card">
+      <h2>✏️ Edit Your Review</h2>
+      
+      <div class="thesis-info">
+        <h3 id="thesisTitle">Loading...</h3>
+        <p>Author: <strong id="thesisAuthor">Loading...</strong></p>
+      </div>
+      
+      <form id="form" method="POST" class="form-card" onsubmit="return validate()">
+        <div class="form-group">
+          <label for="ratingSlider">Overall Rating</label>
+          <div class="rating-selector">
+            <input type="range" id="ratingSlider" min="1" max="5" value="3" oninput="updateRating(this.value)" />
+            <div class="rating-display">
+              <span class="badge" id="ratingValue">3</span>
+              <span id="ratingText">Good</span>
+            </div>
+          </div>
+          <input type="hidden" name="rating" id="ratingHidden" value="3" />
+          <small class="muted">Rate from 1 (Poor) to 5 (Excellent)</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="comment">Review Comment</label>
+          <textarea id="comment" name="comment" rows="8" required placeholder="Update your review of this thesis. Consider methodology, findings, academic merit, and suggestions for improvement." minlength="10" maxlength="1000"></textarea>
+          <small class="muted">Between 10-1000 characters. Be specific and constructive in your feedback.</small>
+        </div>
+        
+        <div class="card warning">
+          <h4>✏️ Editing Your Review</h4>
+          <p>You are updating your existing review for this thesis. Your updated review will replace your previous submission and may affect the thesis approval status.</p>
+        </div>
+        
+        <div class="card guidelines-card">
+          <h4 class="text-success">💡 Teacher Review Guidelines</h4>
+          <ul class="guidelines-list">
+            <li><strong>For Pending Thesis:</strong> Your review helps determine approval/rejection</li>
+            <li><strong>For Approved Thesis:</strong> Provide academic feedback and assessment</li>
+            <li>Be objective and constructive in your feedback</li>
+            <li>Focus on methodology, findings, and academic merit</li>
+            <li>Suggest specific improvements where applicable</li>
+            <li>Maintain professional and respectful tone</li>
+          </ul>
+        </div>
+        
+        <button type="submit" class="btn lg full-width-btn">
+          ✏️ Update Review
+        </button>
+      </form>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

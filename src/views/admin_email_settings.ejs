@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include("partials/head") %>
+  <title>Email Settings - Admin</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <style>
+    .help-text {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+      border-left: 4px solid #667eea;
+    }
+    .help-text h4 {
+      margin-top: 0;
+      color: #667eea;
+    }
+    .help-text ol {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .help-text li {
+      margin: 5px 0;
+    }
+    .test-result {
+      padding: 15px;
+      border-radius: 5px;
+      margin: 15px 0;
+    }
+    .test-result.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+    .test-result.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-weight: bold;
+    }
+    .status-configured {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-not-configured {
+      background: #fff3cd;
+      color: #856404;
+    }
+  </style>
+  <script>
+    let currentSettings = null;
+
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/admin/email-settings');
+        if (response.ok) {
+          currentSettings = await response.json();
+          displaySettings(currentSettings);
+        } else {
+          document.getElementById('statusDisplay').innerHTML = `
+            <p class="status-badge status-not-configured">❌ Email Not Configured</p>
+            <p class="muted">No email settings found. Please configure email below.</p>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    }
+
+    function displaySettings(settings) {
+      const statusDiv = document.getElementById('statusDisplay');
+      
+      if (settings.isConfigured) {
+        const testStatus = settings.lastTestStatus === 'success' 
+          ? '<span style="color: #28a745;">✅ Last test: Success</span>'
+          : settings.lastTestStatus === 'failed'
+          ? '<span style="color: #dc3545;">❌ Last test: Failed</span>'
+          : '';
+        
+        statusDiv.innerHTML = `
+          <p class="status-badge status-configured">✅ Email Configured</p>
+          <p><strong>Email:</strong> ${settings.emailUser}</p>
+          <p><strong>SMTP Host:</strong> ${settings.smtpHost}:${settings.smtpPort}</p>
+          ${testStatus}
+          ${settings.lastTestAt ? '<p class="muted" style="font-size: 0.875rem;">Last tested: ' + new Date(settings.lastTestAt).toLocaleString() + '</p>' : ''}
+        `;
+        
+        // Pre-fill form
+        document.getElementById('emailUser').value = settings.emailUser;
+        document.getElementById('smtpHost').value = settings.smtpHost;
+        document.getElementById('smtpPort').value = settings.smtpPort;
+        document.getElementById('smtpSecure').checked = settings.smtpSecure;
+      } else {
+        statusDiv.innerHTML = `
+          <p class="status-badge status-not-configured">❌ Email Not Configured</p>
+          <p class="muted">Configure your Gmail account below to send account credentials to users.</p>
+        `;
+      }
+    }
+
+    async function saveSettings(event) {
+      event.preventDefault();
+      
+      const form = event.target;
+      const formData = new FormData(form);
+      
+      // Validate email
+      const emailUser = formData.get('emailUser');
+      if (!emailUser) {
+        alert('❌ Error: Gmail address is required');
+        return;
+      }
+      
+      // Password is optional when updating (to keep current password)
+      const emailPassword = formData.get('emailPassword');
+      
+      // If this is a new configuration, password is required
+      if (!currentSettings && !emailPassword) {
+        alert('❌ Error: Gmail App Password is required for new configuration');
+        document.getElementById('emailPassword').focus();
+        return;
+      }
+      
+      const data = {
+        emailUser: emailUser,
+        smtpHost: formData.get('smtpHost'),
+        smtpPort: parseInt(formData.get('smtpPort')),
+        smtpSecure: formData.get('smtpSecure') === 'on'
+      };
+      
+      // Only include password if provided
+      if (emailPassword) {
+        data.emailPassword = emailPassword;
+      }
+      
+      // Show loading
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = '💾 Saving...';
+      submitBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/admin/email-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('✅ Email settings saved successfully!');
+          // Clear password field for security
+          document.getElementById('emailPassword').value = '';
+          loadSettings();
+        } else {
+          alert('❌ Error: ' + (result.error || 'Failed to save settings'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error: Failed to save settings. Please try again.');
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+
+    async function testEmailConnection() {
+      const testBtn = document.getElementById('testBtn');
+      const testResult = document.getElementById('testResult');
+      
+      testBtn.textContent = '🔍 Testing...';
+      testBtn.disabled = true;
+      testResult.innerHTML = '';
+      
+      try {
+        const response = await fetch('/api/admin/email-settings/test', {
+          method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          testResult.innerHTML = `
+            <div class="test-result success">
+              <strong>✅ Test Successful!</strong>
+              <p>${result.message}</p>
+            </div>
+          `;
+        } else {
+          testResult.innerHTML = `
+            <div class="test-result error">
+              <strong>❌ Test Failed</strong>
+              <p>${result.error || 'Connection test failed'}</p>
+            </div>
+          `;
+        }
+        
+        loadSettings();
+      } catch (error) {
+        console.error('Error:', error);
+        testResult.innerHTML = `
+          <div class="test-result error">
+            <strong>❌ Test Failed</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      } finally {
+        testBtn.textContent = '🧪 Test Connection';
+        testBtn.disabled = false;
+      }
+    }
+
+    window.onload = loadSettings;
+  </script>
+</head>
+<body>
+  <div class="bg-bokeh"></div>
+  <%- include('partials/navbar') %>
+  
+  <main class="container">
+    <div class="card highlight">
+      <div class="flex-wrap gap-12 header-flex">
+        <h2 class="no-margin">📧 Email Configuration</h2>
+        <div class="flex-wrap gap-8">
+          <a class="btn ghost" href="/admin/dashboard">📊 Dashboard</a>
+          <a class="btn outline" href="/admin/account-requests">👥 Account Requests</a>
+        </div>
+      </div>
+      <p class="text-muted">Configure your Gmail account to send account credentials to users.</p>
+      
+      <div id="statusDisplay" class="card" style="margin: 20px 0;">
+        <p>Loading...</p>
+      </div>
+
+      <div class="help-text">
+        <h4>📖 How to Set Up Gmail for Sending Emails</h4>
+        <ol>
+          <li>Go to your <a href="https://myaccount.google.com/security" target="_blank">Google Account Security</a> page</li>
+          <li>Enable <strong>2-Step Verification</strong> if not already enabled</li>
+          <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">App Passwords</a></li>
+          <li>Select "Mail" and "Other (Custom name)" - enter "LNC Research Archives"</li>
+          <li>Click "Generate" - Google will create a 16-character password</li>
+          <li>Copy the app password and paste it in the "Email Password" field below</li>
+          <li>Click "Save Configuration" and then "Test Connection"</li>
+        </ol>
+        <p style="margin-bottom: 0;"><strong>Note:</strong> Use the App Password, not your regular Gmail password!</p>
+      </div>
+
+      <form onsubmit="saveSettings(event)" class="form-card">
+        <div class="form-group">
+          <label for="emailUser">Gmail Address <span style="color: #dc3545;">*</span></label>
+          <input 
+            type="email" 
+            id="emailUser" 
+            name="emailUser" 
+            required 
+            placeholder="your-email@gmail.com"
+          />
+          <small class="muted">The Gmail account that will send emails to users</small>
+        </div>
+
+        <div class="form-group">
+          <label for="emailPassword">Gmail App Password <span style="color: #dc3545;">*</span></label>
+          <input 
+            type="password" 
+            id="emailPassword" 
+            name="emailPassword" 
+            placeholder="16-character app password"
+          />
+          <small class="muted">Use App Password from Google, not your regular password (16 characters). Leave blank to keep current password.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="smtpHost">SMTP Host</label>
+          <input 
+            type="text" 
+            id="smtpHost" 
+            name="smtpHost" 
+            value="smtp.gmail.com"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="smtpPort">SMTP Port</label>
+          <input 
+            type="number" 
+            id="smtpPort" 
+            name="smtpPort" 
+            value="587"
+            required
+          />
+          <small class="muted">Use 587 for TLS or 465 for SSL</small>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input 
+              type="checkbox" 
+              id="smtpSecure" 
+              name="smtpSecure"
+            />
+            Use SSL (Port 465 only)
+          </label>
+        </div>
+
+        <div class="flex-wrap gap-12">
+          <button type="submit" class="btn success">💾 Save Configuration</button>
+          <button type="button" class="btn outline" id="testBtn" onclick="testEmailConnection()">🧪 Test Connection</button>
+        </div>
+      </form>
+
+      <div id="testResult"></div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>
