@@ -241,7 +241,17 @@
           <a class="btn outline" href="/admin/account-requests">👥 Account Requests</a>
         </div>
       </div>
-      <p class="text-muted">Configure your SMTP email provider to send account credentials to users.</p>
+      <p class="text-muted">Configure your email provider to send account credentials to users.</p>
+      <% if (process.env.BREVO_API_KEY) { %>
+        <div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px 16px;border-radius:6px;margin:12px 0;">
+          ✅ <strong>Brevo API Key is active</strong> — emails use the Brevo HTTP API. SMTP settings below are ignored.
+          Sender: <strong><%= process.env.BREVO_SENDER_EMAIL || '(set BREVO_SENDER_EMAIL in env)' %></strong>
+        </div>
+      <% } else { %>
+        <div style="background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 16px;border-radius:6px;margin:12px 0;">
+          ⚠️ <strong>No BREVO_API_KEY set</strong> — add <code>BREVO_API_KEY</code> and <code>BREVO_SENDER_EMAIL</code> to your Render environment variables to enable reliable email delivery.
+        </div>
+      <% } %>
       
       <div id="statusDisplay" class="card" style="margin: 20px 0;">
         <p>Loading...</p>

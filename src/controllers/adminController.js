@@ -483,14 +483,31 @@ const saveEmailSettings = async (req, res) => {
 // POST /api/admin/email-settings/test
 const testEmail = async (req, res) => {
   try {
+    // If Brevo API key is configured, test via HTTP API (no SMTP needed)
+    if (process.env.BREVO_API_KEY) {
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || req.session.user.email;
+      try {
+        const apiRes = await fetch('https://api.brevo.com/v3/account', {
+          headers: { 'api-key': process.env.BREVO_API_KEY }
+        });
+        if (!apiRes.ok) {
+          const err = await apiRes.json().catch(() => ({}));
+          return res.status(400).json({ error: `Brevo API key invalid: ${err.message || `HTTP ${apiRes.status}`}` });
+        }
+        const account = await apiRes.json();
+        console.log(`✅ Brevo API key valid, account: ${account.email}`);
+        return res.json({ success: true, message: `Brevo API connected. Account: ${account.email}` });
+      } catch (apiErr) {
+        return res.status(400).json({ error: `Brevo API test failed: ${apiErr.message}` });
+      }
+    }
+
+    // Fallback: SMTP test
     const settings = await EmailSettings.findById('email_settings');
-    
     if (!settings) {
       return res.status(404).json({ error: 'Email settings not found. Please configure email first.' });
     }
-    
     const result = await settings.testConnection();
-    
     if (result.success) {
       console.log(`✅ Email connection test successful`);
       res.json(result);
