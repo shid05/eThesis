@@ -14,7 +14,7 @@
       <h2>Welcome Back</h2>
       <p class="muted">Sign in to your account to continue</p>
       
-      <form id="loginForm" class="form-card" onsubmit="return handleLogin(event)">
+      <form id="loginForm" class="form-card" method="post" action="/login">
         <!-- Inline error banner (hidden by default) -->
         <div id="loginError" style="display:none; padding:12px 16px; border-radius:12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--danger-light); font-size:0.9rem; text-align:center;"></div>
         
@@ -60,6 +60,8 @@
   <%- include('partials/footer') %>
   
   <script>
+    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
     async function handleLogin(e) {
       e.preventDefault();
       

@@ -42,7 +42,7 @@ const login_post = async (req, res) => {
     
     // Set session
     req.session.user = { 
-      id: user._id, 
+      id: user._id.toString(), 
       name: user.name, 
       email: user.email, 
       role: user.role,
