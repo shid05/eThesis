@@ -8,17 +8,21 @@ async function ensureAuthenticated(req, res, next) {
     return res.redirect('/login');
   }
 
-  // Verify the user still exists in the database.
-  // Deleted accounts retain a valid session cookie until expiry, so we must
-  // confirm the record is present on every authenticated request.
+  // Verify the user still exists and sync their current role from the DB.
+  // This ensures role changes and account deletions take effect on the very
+  // next request without requiring re-login.
   try {
-    const exists = await User.exists({ _id: req.session.user.id });
-    if (!exists) {
+    const dbUser = await User.findById(req.session.user.id).select('role').lean();
+    if (!dbUser) {
       req.session.destroy(() => {});
       if (req.xhr || req.headers.accept?.includes('application/json')) {
         return res.status(401).json({ error: 'Account no longer exists' });
       }
       return res.redirect('/login');
+    }
+    // Keep the session role in sync with the DB role
+    if (dbUser.role !== req.session.user.role) {
+      req.session.user.role = dbUser.role;
     }
   } catch (dbErr) {
     console.error('ensureAuthenticated DB check failed:', dbErr.message);
