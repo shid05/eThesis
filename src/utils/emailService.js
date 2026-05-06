@@ -20,7 +20,10 @@ const createTransporter = async () => {
       auth: {
         user: settings.emailUser,
         pass: settings.getDecryptedPassword()
-      }
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
     });
     
     return transporter;
