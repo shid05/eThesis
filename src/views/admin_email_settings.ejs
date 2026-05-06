@@ -221,7 +221,11 @@
       }
     }
 
-    window.onload = loadSettings;
+    window.onload = function() {
+      loadSettings();
+      document.getElementById('emailSettingsForm').addEventListener('submit', saveSettings);
+      document.getElementById('testBtn').addEventListener('click', testEmailConnection);
+    };
   </script>
 </head>
 <body>
@@ -237,48 +241,48 @@
           <a class="btn outline" href="/admin/account-requests">👥 Account Requests</a>
         </div>
       </div>
-      <p class="text-muted">Configure your Gmail account to send account credentials to users.</p>
+      <p class="text-muted">Configure your SMTP email provider to send account credentials to users.</p>
       
       <div id="statusDisplay" class="card" style="margin: 20px 0;">
         <p>Loading...</p>
       </div>
 
       <div class="help-text">
-        <h4>📖 How to Set Up Gmail for Sending Emails</h4>
+        <h4>📖 Recommended: Brevo (Free — 300 emails/day)</h4>
         <ol>
-          <li>Go to your <a href="https://myaccount.google.com/security" target="_blank">Google Account Security</a> page</li>
-          <li>Enable <strong>2-Step Verification</strong> if not already enabled</li>
-          <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">App Passwords</a></li>
-          <li>Select "Mail" and "Other (Custom name)" - enter "LNC Research Archives"</li>
-          <li>Click "Generate" - Google will create a 16-character password</li>
-          <li>Copy the app password and paste it in the "Email Password" field below</li>
-          <li>Click "Save Configuration" and then "Test Connection"</li>
+          <li>Sign up free at <a href="https://brevo.com" target="_blank">brevo.com</a></li>
+          <li>Click your profile (top right) → <strong>SMTP &amp; API</strong></li>
+          <li>Go to the <strong>SMTP</strong> tab → click <strong>Generate a new SMTP key</strong></li>
+          <li>Copy the key and paste it in the <strong>Password / SMTP Key</strong> field below</li>
+          <li>Set SMTP Host to <code>smtp-relay.brevo.com</code>, Port <code>587</code>, SSL off</li>
+          <li>Set Email Address to your <strong>Brevo login email</strong></li>
+          <li>Click <strong>Save Configuration</strong> then <strong>Test Connection</strong></li>
         </ol>
-        <p style="margin-bottom: 0;"><strong>Note:</strong> Use the App Password, not your regular Gmail password!</p>
+        <p style="margin-bottom: 0;"><strong>Note:</strong> Do not use Gmail SMTP — cloud servers like Render are blocked by Gmail.</p>
       </div>
 
-      <form onsubmit="saveSettings(event)" class="form-card">
+      <form id="emailSettingsForm" class="form-card">
         <div class="form-group">
-          <label for="emailUser">Gmail Address <span style="color: #dc3545;">*</span></label>
+          <label for="emailUser">Sender Email Address <span style="color: #dc3545;">*</span></label>
           <input 
             type="email" 
             id="emailUser" 
             name="emailUser" 
             required 
-            placeholder="your-email@gmail.com"
+            placeholder="your-email@brevo.com"
           />
-          <small class="muted">The Gmail account that will send emails to users</small>
+          <small class="muted">The email address used to send emails (your Brevo login email)</small>
         </div>
 
         <div class="form-group">
-          <label for="emailPassword">Gmail App Password <span style="color: #dc3545;">*</span></label>
+          <label for="emailPassword">Password / SMTP Key <span style="color: #dc3545;">*</span></label>
           <input 
             type="password" 
             id="emailPassword" 
             name="emailPassword" 
-            placeholder="16-character app password"
+            placeholder="Brevo SMTP key or app password"
           />
-          <small class="muted">Use App Password from Google, not your regular password (16 characters). Leave blank to keep current password.</small>
+          <small class="muted">Your SMTP key from Brevo (or App Password for other providers). Leave blank to keep current.</small>
         </div>
 
         <div class="form-group">
@@ -287,7 +291,7 @@
             type="text" 
             id="smtpHost" 
             name="smtpHost" 
-            value="smtp.gmail.com"
+            placeholder="smtp-relay.brevo.com"
             required
           />
         </div>
@@ -317,7 +321,7 @@
 
         <div class="flex-wrap gap-12">
           <button type="submit" class="btn success">💾 Save Configuration</button>
-          <button type="button" class="btn outline" id="testBtn" onclick="testEmailConnection()">🧪 Test Connection</button>
+          <button type="button" class="btn outline" id="testBtn">🧪 Test Connection</button>
         </div>
       </form>
 
