@@ -110,7 +110,7 @@ async function sendAccountDetailsEmail(userEmail, userName, password, role) {
               </div>
               
               <p>You can now log in to LNC Research Archives using the credentials above:</p>
-              <a href="${process.env.APP_URL || 'https://nonstandardized-zion-exiguous.ngrok-free.dev'}/login" class="btn">Login to LNC Research Archives</a>
+              <a href="${process.env.APP_URL}/login" class="btn">Login to LNC Research Archives</a>
               
               <p>If you have any questions or need assistance, please contact the administrator.</p>
               
