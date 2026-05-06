@@ -166,6 +166,21 @@ const updateRole = async (req, res) => {
       link: '/profile'
     });
 
+    // Patch the role in every active session for this user so the next
+    // request they make reflects the new role without requiring re-login.
+    try {
+      const sessionCollection = mongoose.connection.db.collection('sessions');
+      await sessionCollection.updateMany(
+        { 'session.user.id': userId },
+        { $set: { 'session.user.role': role } }
+      );
+    } catch (sessionErr) {
+      console.error('Failed to patch sessions for role change:', sessionErr.message);
+    }
+
+    // Force an immediate reload for the affected user if they are online.
+    req.io.to(userId).emit('role-updated', { role });
+
     console.log(`✅ User role updated: ${user.name} -> ${role} by admin`);
     res.json({ message: 'User role updated successfully', user });
   } catch (error) {

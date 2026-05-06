@@ -64,6 +64,11 @@ function initNotifications() {
       showNotification('Your account has been removed by an administrator.', 'error', 'Account Deleted');
       setTimeout(() => { window.location.href = '/login'; }, 2500);
     });
+
+    socket.on('role-updated', ({ role }) => {
+      showNotification(`Your account role has been changed to ${role}. Reloading...`, 'info', 'Role Changed');
+      setTimeout(() => { window.location.reload(); }, 2500);
+    });
   }
 }
 
