@@ -437,9 +437,9 @@ const saveEmailSettings = async (req, res) => {
       if (emailPassword) {
         settings.emailPassword = emailPassword;
       }
-      settings.smtpHost = smtpHost || 'smtp.gmail.com';
-      settings.smtpPort = smtpPort || 587;
-      settings.smtpSecure = smtpSecure || false;
+      settings.smtpHost = smtpHost || settings.smtpHost;
+      settings.smtpPort = smtpPort || settings.smtpPort;
+      settings.smtpSecure = smtpSecure !== undefined ? smtpSecure : settings.smtpSecure;
       settings.configuredBy = req.session.user.id;
     } else {
       if (!emailPassword) {
@@ -450,7 +450,7 @@ const saveEmailSettings = async (req, res) => {
         _id: 'email_settings',
         emailUser,
         emailPassword,
-        smtpHost: smtpHost || 'smtp.gmail.com',
+        smtpHost: smtpHost || 'smtp-relay.brevo.com',
         smtpPort: smtpPort || 587,
         smtpSecure: smtpSecure || false,
         configuredBy: req.session.user.id

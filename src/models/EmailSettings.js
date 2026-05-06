@@ -145,17 +145,17 @@ emailSettingsSchema.methods.testConnection = async function() {
     
     // Create transporter with proper configuration
     const transporter = nodemailer.createTransport({
-      host: this.smtpHost || 'smtp.gmail.com',
+      host: this.smtpHost || 'smtp-relay.brevo.com',
       port: this.smtpPort || 587,
-      secure: this.smtpSecure || false, // true for 465, false for other ports
+      secure: this.smtpSecure || false,
       auth: {
         user: this.emailUser,
         pass: decryptedPassword
       },
-      // Add timeout and connection options
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 10000
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 15000
     });
     
     // Verify connection
@@ -185,15 +185,15 @@ emailSettingsSchema.methods.testConnection = async function() {
     }
     
     // Return detailed error
-    let errorMessage = error.message || 'Connection test failed';
+    const host = this.smtpHost || 'smtp-relay.brevo.com';
+    let errorMessage = `[${host}:${this.smtpPort}] ${error.message || 'Connection test failed'}`;
     
-    // Provide helpful error messages
-    if (errorMessage.includes('Invalid login')) {
-      errorMessage = 'Invalid email or password. Please check your Gmail App Password.';
-    } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ETIMEDOUT')) {
-      errorMessage = 'Connection failed. Please check your internet connection and SMTP settings.';
-    } else if (errorMessage.includes('EAUTH')) {
-      errorMessage = 'Authentication failed. Please verify your Gmail App Password is correct.';
+    if (error.message?.includes('Invalid login') || error.message?.includes('EAUTH')) {
+      errorMessage += ' — Check your SMTP key/password is correct.';
+    } else if (error.message?.includes('ECONNREFUSED')) {
+      errorMessage += ' — Connection refused. Check SMTP host and port.';
+    } else if (error.message?.includes('ETIMEDOUT') || error.message?.includes('timeout')) {
+      errorMessage += ' — Timed out. The SMTP host may be unreachable from this server.';
     }
     
     return { 
