@@ -2424,7 +2424,7 @@ input:focus, textarea:focus, select:focus {
   min-width: 0;
 }
 
-.thesis-title {
+.thesis-title-section .thesis-title {
   font-size: 1.05rem;
   font-weight: 600;
   margin: 0 0 8px;
@@ -3641,6 +3641,11 @@ input:focus, textarea:focus, select:focus {
   background-clip: text;
   color: transparent;
   line-height: 1.2;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+  word-break: normal;
 }
 
 .thesis-meta {
