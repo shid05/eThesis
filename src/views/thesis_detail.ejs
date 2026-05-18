@@ -257,12 +257,12 @@
 
       if (existingRequest) {
         if (existingRequest.status === 'pending') {
-          area.innerHTML = `<div style="background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px;border-radius:6px;text-align:center">
+          area.innerHTML = `<div style="background:rgba(250,204,21,0.12);border:1px solid rgba(250,204,21,0.4);color:#fde047;padding:12px;border-radius:6px;text-align:center">
             ⏳ <strong>Request Pending</strong><br><small>Submitted on ${new Date(existingRequest.createdAt).toLocaleDateString()}. Awaiting approval.</small>
           </div>`;
         } else if (existingRequest.status === 'fulfilled') {
           area.innerHTML = `
-            <div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px 12px;border-radius:6px;text-align:center;margin-bottom:12px">
+            <div style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.45);color:#86efac;padding:10px 12px;border-radius:6px;text-align:center;margin-bottom:12px">
               ✅ <strong>Previously Approved</strong> — check your email for the download link.
             </div>
             <button onclick="showRequestModal('${thesis._id}', document.getElementById('title').textContent)" class="btn lg ghost" style="margin:0 auto;">
