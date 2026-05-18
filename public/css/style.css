@@ -4203,7 +4203,18 @@ input:focus, textarea:focus, select:focus {
 .bento-info .abstract-text {
   max-height: 350px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 12px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+@media (max-width: 768px) {
+  .bento-info .abstract-text {
+    max-height: none;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-right: 0;
+  }
 }
 .bento-info .abstract-text::-webkit-scrollbar {
   width: 6px;
