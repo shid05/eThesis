@@ -1,8 +1,8 @@
 # LNC Research Archives
 
-A secure academic thesis and capstone repository system for **Laguna Northwestern College – San Lorenzo Ruiz Montessori Center**. Students submit thesis documents for administrator and teacher review; approved theses are publicly discoverable and can be requested via a gated email workflow that delivers the PDF directly to the requester upon approval.
+A secure academic thesis and capstone repository system for **Laguna Northwestern College**. Students submit thesis documents for administrator and teacher approved theses are publicly discoverable and can be requested via a gated email workflow that delivers the PDF directly to the requester upon approval.
 
-> **Live deployment:** [https://lncarchives.onrender.com](https://lncarchives.onrender.com)
+> **Live deployment:** [https://ethesis.onrender.com](https://ethesis.onrender.com)
 
 ---
 
