@@ -263,12 +263,12 @@
         } else if (existingRequest.status === 'fulfilled') {
           area.innerHTML = `
             <div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px 12px;border-radius:6px;text-align:center;margin-bottom:12px">
-              ✅ <strong>Request Approved</strong>
+              ✅ <strong>Previously Approved</strong> — check your email for the download link.
             </div>
-            <a href="/thesis-requests/download/${existingRequest._id}" class="btn lg primary" style="margin:0 auto;" download>
-              <span class="btn-icon">📥</span> Download Thesis PDF
-            </a>
-            <p class="muted text-sm text-center" style="margin-top:8px">You can re-download this file anytime.</p>
+            <button onclick="showRequestModal('${thesis._id}', document.getElementById('title').textContent)" class="btn lg ghost" style="margin:0 auto;">
+              <span class="btn-icon">&#x1F4EC;</span> Request Again
+            </button>
+            <p class="muted text-sm text-center" style="margin-top:8px">A new email with the file will be sent upon approval.</p>
           `;
         }
         return;
