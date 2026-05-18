@@ -545,11 +545,6 @@ const recentTheses = async (req, res) => {
   }
 };
 
-// GET /api/reviews/recent — deprecated, kept for backwards compat
-const recentReviews = async (req, res) => {
-  res.json([]);
-};
-
 // GET /api/system/health
 const systemHealth = async (req, res) => {
   try {
@@ -696,7 +691,6 @@ module.exports = {
   testEmail,
   recentApprovedTheses,
   recentTheses,
-  recentReviews,
   systemHealth,
   thesisRequestsApi: async (req, res) => {
     try {

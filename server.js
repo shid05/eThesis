@@ -24,8 +24,10 @@ app.set('views', path.join(__dirname, 'src', 'views'));
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.APP_URL || "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    origin: process.env.NODE_ENV === 'production'
+      ? (process.env.APP_URL || false)
+      : '*',
+    methods: ["GET", "POST"]
   }
 });
 
