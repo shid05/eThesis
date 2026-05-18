@@ -178,7 +178,25 @@ const approveRequest = async (req, res) => {
     const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
     const downloadUrl = `${appUrl}/thesis-requests/download/${request._id}`;
 
-    // Send fulfillment email to the requester
+    // Determine who approved based on which token was used
+    const approvedByType = request.authorToken === token ? 'Author' : 'Administrator';
+
+    // Fetch the thesis author's name/email now (needed for sync email in both branches)
+    const authorDoc = await User.findById(thesis.author).select('email name').lean();
+
+    // ── SAVE FIRST, then email ────────────────────────────────────────────────
+    // If the DB write fails after sending the email the tokens would remain
+    // valid, allowing a second approval to dispatch the file again.
+    request.status = 'fulfilled';
+    request.approvedByType = approvedByType;
+    request.approvedAt = new Date();
+    request.fulfilledAt = new Date();
+    request.downloadExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48-hour link
+    request.authorToken = undefined;
+    request.adminToken = undefined;
+    await request.save();
+
+    // Send fulfillment email to the requester (after DB is committed)
     await sendFileFulfillmentEmail(
       request.requester.email,
       request.requester.name,
@@ -187,26 +205,15 @@ const approveRequest = async (req, res) => {
       null
     );
 
-    // Determine who approved based on which token was used
-    const approvedByType = request.authorToken === token ? 'Author' : 'Administrator';
-
-    // Mark as fulfilled and invalidate both tokens
-    request.status = 'fulfilled';
-    request.approvedByType = approvedByType;
-    request.approvedAt = new Date();
-    request.fulfilledAt = new Date();
-    request.authorToken = undefined;
-    request.adminToken = undefined;
-    await request.save();
-
-    // Send sync notification to the OTHER party
+    // Send sync notification to the OTHER party, naming the actual approver
     if (approvedByType === 'Author') {
       // Author approved → notify all admins
       const admins = await User.find({ role: 'Admin' }).select('email name').lean();
       for (const admin of admins) {
         if (admin.email) {
           sendApprovalSyncEmail(
-            admin.email, admin.name, 'Author',
+            admin.email, admin.name,
+            `Author (${authorDoc?.name || 'thesis author'})`,
             { name: request.requester.name, email: request.requester.email },
             { title: thesis.title }
           ).catch(e => console.error('Sync email failed:', e.message));
@@ -214,7 +221,6 @@ const approveRequest = async (req, res) => {
       }
     } else {
       // Admin approved → notify the thesis author
-      const authorDoc = await User.findById(thesis.author).select('email name').lean();
       if (authorDoc?.email) {
         sendApprovalSyncEmail(
           authorDoc.email, authorDoc.name, 'Administrator',
@@ -300,6 +306,18 @@ const downloadFile = async (req, res) => {
         <html><body style="font-family:Arial,sans-serif;text-align:center;padding:60px">
           <h2>Download link not found</h2>
           <p>This link is invalid or the request has not been approved yet.</p>
+          <a href="${process.env.APP_URL || '/'}">← Return to Home</a>
+        </body></html>
+      `);
+    }
+
+    // Enforce 48-hour link expiry (Issue #6 fix)
+    if (request.downloadExpiresAt && request.downloadExpiresAt < new Date()) {
+      return res.status(410).send(`
+        <html><body style="font-family:Arial,sans-serif;text-align:center;padding:60px">
+          <h2 style="color:#ffc107">⏰ Download Link Expired</h2>
+          <p>This download link expired on ${request.downloadExpiresAt.toLocaleDateString()}.</p>
+          <p>Please contact the system administrator if you still need access to this file.</p>
           <a href="${process.env.APP_URL || '/'}">← Return to Home</a>
         </body></html>
       `);

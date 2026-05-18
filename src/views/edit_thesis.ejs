@@ -48,7 +48,7 @@
         document.getElementById('authorsName').value = thesis.authorsName || '';
         document.getElementById('yearPublished').value = thesis.yearPublished || '';
         document.getElementById('abstract').value = thesis.abstract || '';
-        document.getElementById('currentFileLink').href = thesis.fileUrl;
+        // fileUrl intentionally not exposed to the client (security: URL-isolation policy)
 
         // Update page title
         document.title = `Edit: ${thesis.title} - LNC Research Archives`;
@@ -230,7 +230,7 @@
         <div class="form-group">
           <label for="thesisFile">Update PDF Document (Optional)</label>
           <input type="file" id="thesisFile" name="thesisFile" accept="application/pdf" />
-          <p class="muted" style="margin-bottom: 5px; font-size: 0.9em;">Current file: <a id="currentFileLink" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">View Current PDF</a></p>
+          <p class="muted" style="margin-bottom: 5px; font-size: 0.9em;">📎 A PDF document is currently attached to this thesis.</p>
           <small class="muted">Leave blank to keep your currently uploaded document, or select a new PDF file to replace it (Max 20MB limit).</small>
         </div>
         

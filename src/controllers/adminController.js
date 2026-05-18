@@ -10,10 +10,6 @@ const { sendAccountDetailsEmail, sendPasswordResetEmail } = require('../utils/em
 const { getBadgeCounts, emitBadgeCounts } = require('../utils/badgeCounts');
 const { createNotification, createNotificationForMany } = require('../utils/notificationHelper');
 
-// GET /admin/dashboard
-const dashboard = (req, res) => {
-  res.render('admin_dashboard');
-};
 
 // GET /admin/users
 const users_get = (req, res) => {
@@ -673,7 +669,6 @@ const rejectRetrieval = async (req, res) => {
 };
 
 module.exports = { 
-  dashboard, 
   users_get, 
   reports, 
   accountRequests, 

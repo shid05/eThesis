@@ -15,7 +15,6 @@ router.get('/profile', ensureAuthenticated, pageController.profile);
 // ===== Public API routes =====
 router.get('/session-info', pageController.sessionInfo);
 router.get('/api/stats', pageController.getStats);
-router.get('/api/active-users', pageController.getActiveUsers);
 router.get('/api/test', pageController.testEndpoint);
 
 // ===== Profile API routes =====

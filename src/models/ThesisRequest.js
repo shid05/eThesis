@@ -38,14 +38,13 @@ const thesisRequestSchema = new mongoose.Schema(
     approvedByType: { type: String, enum: ['Author', 'Administrator'], default: null },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: { type: Date },
-    fulfilledAt: { type: Date }
+    fulfilledAt: { type: Date },
+    downloadExpiresAt: { type: Date }   // 48-hour expiry enforced at download time
   },
   { timestamps: true }
 );
 
 thesisRequestSchema.index({ thesis: 1, requester: 1 });
-thesisRequestSchema.index({ authorToken: 1 });
-thesisRequestSchema.index({ adminToken: 1 });
 thesisRequestSchema.index({ status: 1, createdAt: -1 });
 
 thesisRequestSchema.statics.generateToken = function () {

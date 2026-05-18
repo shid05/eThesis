@@ -157,8 +157,8 @@
             <p class="muted">Recent Submissions</p>
           </div>
           <div class="card">
-            <h4 class="text-success" style="margin-bottom: 8px;">${(activity.recentReviews || []).length}</h4>
-            <p class="muted">Recent Reviews</p>
+            <h4 class="text-success" style="margin-bottom: 8px;">${(activity.recentFileRequests || []).length}</h4>
+            <p class="muted">Recent File Requests</p>
           </div>
           <div class="card">
             <h4 class="text-accent" style="margin-bottom: 8px;">${new Date().toLocaleDateString()}</h4>
@@ -291,7 +291,7 @@
     
     <!-- Summary Statistics -->
     <div class="card">
-      <h2>Platform Overview</h2>
+      <h2>Statistics Summary</h2>
       <div class="grid">
         <div class="card">
           <h3 class="text-primary" id="totalTheses" style="margin-bottom: 8px;">Loading...</h3>
