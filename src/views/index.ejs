@@ -16,7 +16,7 @@
       <div class="hero-content">
         <div class="hero-text">
           <h1 class="hero-title">Welcome to LNC Research Archives</h1>
-          <p class="hero-subtitle">A modern repository of approved thesis with comprehensive peer reviews. Join our academic community to contribute, review, and discover cutting-edge research.</p>
+          <p class="hero-subtitle">A secure digital archive of approved academic thesis. Browse, discover, and request access to research from our institutional repository.</p>
           <div class="user-info-section">
             <div class="user-status">
               <span class="status-label">Signed in as:</span>
@@ -35,48 +35,6 @@
       </div>
     </div>
     
-    <!-- Active Users Section -->
-    <div class="card active-users-card" style="margin-bottom: 24px;">
-      <div class="active-users-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
-        <h3 style="margin: 0;">👥 Currently Online</h3>
-        <span class="badge success" id="onlineCount">0 users</span>
-      </div>
-      <div id="activeUsersList" class="stack active-users-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; padding-right: 8px;">
-        <div class="text-muted center" style="padding: 20px;">Loading active users...</div>
-      </div>
-    </div>
-    
-    <!-- Quick Stats Section -->
-    <div class="card platform-overview-card" style="display: flex; flex-direction: column; gap: 24px;">
-      <div class="stats-header" style="text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
-        <h2>📊 Platform Overview</h2>
-        <p class="muted">Real-time statistics about our academic repository</p>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px;" id="stats">
-        <div class="stat-card" style="display: flex; align-items: center; gap: 16px; padding: 20px; background: rgba(59,130,246,0.05); border-radius: 16px; border: 1px solid rgba(59,130,246,0.2);">
-          <div class="stat-icon" style="font-size: 2.5rem; background: rgba(59,130,246,0.1); padding: 12px; border-radius: 12px;">📄</div>
-          <div>
-            <h2 class="text-primary" id="thesesCount" style="margin: 0; font-size: 2rem;"><%= typeof totalTheses !== 'undefined' ? totalTheses : 'Loading...' %></h2>
-            <p class="muted" style="margin: 0; font-weight: 500;">Approved Thesis</p>
-          </div>
-        </div>
-        <div class="stat-card" style="display: flex; align-items: center; gap: 16px; padding: 20px; background: rgba(16,185,129,0.05); border-radius: 16px; border: 1px solid rgba(16,185,129,0.2);">
-          <div class="stat-icon" style="font-size: 2.5rem; background: rgba(16,185,129,0.1); padding: 12px; border-radius: 12px;">⭐</div>
-          <div>
-            <h2 class="text-success" id="reviewsCount" style="margin: 0; font-size: 2rem;"><%= typeof totalReviews !== 'undefined' ? totalReviews : 'Loading...' %></h2>
-            <p class="muted" style="margin: 0; font-weight: 500;">Total Reviews</p>
-          </div>
-        </div>
-        <div class="stat-card" style="display: flex; align-items: center; gap: 16px; padding: 20px; background: rgba(6,182,212,0.05); border-radius: 16px; border: 1px solid rgba(6,182,212,0.2);">
-          <div class="stat-icon" style="font-size: 2.5rem; background: rgba(6,182,212,0.1); padding: 12px; border-radius: 12px;">👥</div>
-          <div>
-            <h2 class="text-accent" id="activeUsersCount" style="margin: 0; font-size: 2rem;"><%= typeof totalUsers !== 'undefined' ? totalUsers : 'Loading...' %></h2>
-            <p class="muted" style="margin: 0; font-weight: 500;">Online</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    
     <!-- Features Section -->
     <div class="grid">
       <div class="card feature-card">
@@ -86,9 +44,9 @@
       </div>
       
       <div class="card feature-card">
-        <div class="feature-icon">📝</div>
-        <h3>Peer Review System</h3>
-        <p class="muted">Our comprehensive review process ensures high-quality academic standards and valuable feedback.</p>
+        <div class="feature-icon">�</div>
+        <h3>Request Thesis File</h3>
+        <p class="muted">Submit a justified request to receive a thesis PDF directly to your email after review and approval.</p>
       </div>
       
       <div class="card feature-card">
@@ -106,32 +64,14 @@
   <script>
     async function load(){
       try {
-        // Load user info
         const res = await fetch('/session-info');
         const data = await res.json();
-        
         if (data.user) {
           document.getElementById('userSpan').textContent = data.user.name;
           if (typeof window.setCurrentUser === 'function') {
             window.setCurrentUser(data.user);
           }
         }
-        
-        // Load statistics
-        const statsResponse = await fetch('/api/stats');
-        const stats = await statsResponse.json();
-        
-        document.getElementById('thesesCount').textContent = stats.totalTheses || '0';
-        document.getElementById('reviewsCount').textContent = stats.totalReviews || '0';
-        
-        // Update online users count and list
-        const activeUsersResponse = await fetch('/api/active-users');
-        const activeUsersData = await activeUsersResponse.json();
-        document.getElementById('onlineCount').textContent = `${activeUsersData.count || '0'} users`;
-        
-        // Update active users list
-        updateActiveUsersDisplay(activeUsersData);
-        
       } catch (error) {
         console.error('Error loading homepage data:', error);
       }

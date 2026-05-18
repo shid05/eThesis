@@ -20,6 +20,7 @@ router.get('/api/test', pageController.testEndpoint);
 
 // ===== Profile API routes =====
 router.post('/api/profile/update-name', ensureAuthenticated, pageController.updateName);
+router.post('/api/profile/update-email', ensureAuthenticated, pageController.updateEmail);
 router.post('/api/profile/upload-picture', ensureAuthenticated, pageController.upload.single('profilePicture'), pageController.uploadPicture);
 router.post('/api/profile/change-password', ensureAuthenticated, pageController.changePassword);
 

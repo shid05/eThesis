@@ -3,7 +3,7 @@ const ThesisRequest = require('../models/ThesisRequest');
 const Thesis = require('../models/Thesis');
 const User = require('../models/User');
 const { cloudinary, extractPublicIdFromUrl } = require('../utils/cloudinary');
-const { sendFileRequestNotification, sendFileFulfillmentEmail } = require('../utils/emailService');
+const { sendFileRequestNotification, sendFileFulfillmentEmail, sendApprovalSyncEmail } = require('../utils/emailService');
 const { createNotification } = require('../utils/notificationHelper');
 
 // POST /api/thesis-requests
@@ -43,37 +43,53 @@ const submitRequest = async (req, res) => {
       });
     }
 
-    // Create the request with a unique approval token (7-day expiry)
-    const token = ThesisRequest.generateToken();
+    // Generate two separate tokens — one for the author, one for admins (7-day expiry)
+    const authorToken = ThesisRequest.generateToken();
+    const adminToken = ThesisRequest.generateToken();
     const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const request = await ThesisRequest.create({
       thesis: thesisId,
       requester: requesterId,
       reason: reason.trim(),
-      approvalToken: token,
+      authorToken,
+      adminToken,
       tokenExpiresAt
     });
 
-    // Build approval URL
+    // Build role-specific approval URLs
     const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const approvalUrl = `${appUrl}/thesis-requests/approve/${token}`;
-
-    // Collect recipient emails: thesis author + all admins
-    const admins = await User.find({ role: 'Admin' }).select('email').lean();
-    const adminEmails = admins.map(a => a.email).filter(Boolean);
-    const recipients = [...new Set([thesis.author.email, ...adminEmails].filter(Boolean))];
+    const authorApprovalUrl = `${appUrl}/thesis-requests/approve/${authorToken}`;
+    const adminApprovalUrl = `${appUrl}/thesis-requests/approve/${adminToken}`;
 
     const requesterUser = await User.findById(requesterId).select('name email').lean();
+    const admins = await User.find({ role: 'Admin' }).select('email name').lean();
+    const adminEmails = admins.map(a => a.email).filter(Boolean);
 
-    // Fire-and-forget the emails (don't block the response)
-    sendFileRequestNotification(
-      recipients,
-      { name: requesterUser.name, email: requesterUser.email },
-      { title: thesis.title, authorsName: thesis.authorsName, yearPublished: thesis.yearPublished },
-      reason.trim(),
-      approvalUrl
-    ).catch(err => console.error('Failed to send file request notification:', err.message));
+    const thesisMeta = { title: thesis.title, authorsName: thesis.authorsName, yearPublished: thesis.yearPublished };
+    const requesterMeta = { name: requesterUser.name, email: requesterUser.email };
+
+    // Send author-specific approval URL to thesis author (fire-and-forget)
+    if (thesis.author.email) {
+      sendFileRequestNotification(
+        [thesis.author.email],
+        requesterMeta,
+        thesisMeta,
+        reason.trim(),
+        authorApprovalUrl
+      ).catch(err => console.error('Failed to send author notification:', err.message));
+    }
+
+    // Send admin-specific approval URL to all admins
+    if (adminEmails.length) {
+      sendFileRequestNotification(
+        adminEmails,
+        requesterMeta,
+        thesisMeta,
+        reason.trim(),
+        adminApprovalUrl
+      ).catch(err => console.error('Failed to send admin notification:', err.message));
+    }
 
     // Notify the author in-app
     await createNotification(req.io, thesis.author._id, {
@@ -96,7 +112,10 @@ const approveRequest = async (req, res) => {
   try {
     const { token } = req.params;
 
-    const request = await ThesisRequest.findOne({ approvalToken: token })
+    // Match token against either the author's or admin's token
+    const request = await ThesisRequest.findOne({
+      $or: [{ authorToken: token }, { adminToken: token }]
+    })
       .populate('thesis')
       .populate('requester', 'name email');
 
@@ -172,12 +191,42 @@ const approveRequest = async (req, res) => {
       48
     );
 
-    // Mark as fulfilled
+    // Determine who approved based on which token was used
+    const approvedByType = request.authorToken === token ? 'Author' : 'Administrator';
+
+    // Mark as fulfilled and invalidate both tokens
     request.status = 'fulfilled';
+    request.approvedByType = approvedByType;
     request.approvedAt = new Date();
     request.fulfilledAt = new Date();
-    request.approvalToken = undefined; // invalidate token
+    request.authorToken = undefined;
+    request.adminToken = undefined;
     await request.save();
+
+    // Send sync notification to the OTHER party
+    if (approvedByType === 'Author') {
+      // Author approved → notify all admins
+      const admins = await User.find({ role: 'Admin' }).select('email name').lean();
+      for (const admin of admins) {
+        if (admin.email) {
+          sendApprovalSyncEmail(
+            admin.email, admin.name, 'Author',
+            { name: request.requester.name, email: request.requester.email },
+            { title: thesis.title }
+          ).catch(e => console.error('Sync email failed:', e.message));
+        }
+      }
+    } else {
+      // Admin approved → notify the thesis author
+      const authorDoc = await User.findById(thesis.author).select('email name').lean();
+      if (authorDoc?.email) {
+        sendApprovalSyncEmail(
+          authorDoc.email, authorDoc.name, 'Administrator',
+          { name: request.requester.name, email: request.requester.email },
+          { title: thesis.title }
+        ).catch(e => console.error('Sync email failed:', e.message));
+      }
+    }
 
     // Notify the requester in-app if socket is available
     if (req.io) {

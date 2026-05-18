@@ -1,5 +1,4 @@
 const Thesis = require('../models/Thesis');
-const Review = require('../models/Review');
 const User = require('../models/User');
 const multer = require('multer');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
@@ -145,18 +144,42 @@ const uploadPicture = async (req, res) => {
   }
 };
 
+// POST /api/profile/update-email
+const updateEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || email.trim() === '') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    const normalized = email.trim().toLowerCase();
+    const userId = req.session.user.id;
+    const existing = await User.findOne({ email: normalized, _id: { $ne: userId } });
+    if (existing) {
+      return res.status(409).json({ error: 'That email address is already in use by another account' });
+    }
+    await User.findByIdAndUpdate(userId, { email: normalized });
+    req.session.user.email = normalized;
+    res.json({ success: true, email: normalized });
+  } catch (err) {
+    console.error('Error updating email:', err);
+    res.status(500).json({ error: 'Failed to update email' });
+  }
+};
+
 // GET /api/stats
 const getStats = async (req, res) => {
   try {
-    const [totalTheses, totalReviews, totalUsers] = await Promise.all([
+    const [totalTheses, totalUsers] = await Promise.all([
       Thesis.countDocuments({ status: 'Approved' }),
-      Review.countDocuments(),
       User.countDocuments()
     ]);
 
     res.json({
       totalTheses,
-      totalReviews,
       totalUsers,
       timestamp: new Date().toISOString()
     });
@@ -255,7 +278,8 @@ module.exports = {
   contact,
   profile, 
   sessionInfo, 
-  updateName, 
+  updateName,
+  updateEmail,
   uploadPicture,
   upload,
   changePassword,

@@ -24,12 +24,18 @@ const thesisRequestSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected', 'fulfilled'],
       default: 'pending'
     },
-    approvalToken: {
+    authorToken: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    adminToken: {
       type: String,
       unique: true,
       sparse: true
     },
     tokenExpiresAt: { type: Date },
+    approvedByType: { type: String, enum: ['Author', 'Administrator'], default: null },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: { type: Date },
     fulfilledAt: { type: Date }
@@ -38,7 +44,8 @@ const thesisRequestSchema = new mongoose.Schema(
 );
 
 thesisRequestSchema.index({ thesis: 1, requester: 1 });
-thesisRequestSchema.index({ approvalToken: 1 });
+thesisRequestSchema.index({ authorToken: 1 });
+thesisRequestSchema.index({ adminToken: 1 });
 thesisRequestSchema.index({ status: 1, createdAt: -1 });
 
 thesisRequestSchema.statics.generateToken = function () {

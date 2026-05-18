@@ -7,7 +7,7 @@ const { ensureAuthenticated, ensureRole } = require('../middleware/auth');
 router.use(ensureAuthenticated, ensureRole('Admin'));
 
 // Page routes (mounted at /admin, so /admin/dashboard, /admin/users, etc.)
-router.get('/dashboard', adminController.dashboard);
+router.get('/dashboard', (req, res) => res.redirect('/thesis/admin/pending'));
 router.get('/users', adminController.users_get);
 router.get('/reports', adminController.reports);
 router.get('/account-requests', adminController.accountRequests);

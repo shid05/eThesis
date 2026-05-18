@@ -190,9 +190,17 @@
               </div>
 
               <div class="form-group">
-                <label>Email Address</label>
-                <div class="form-value" id="email">
-                  <%= currentUser ? currentUser.email : 'Loading...' %>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label style="margin:0;">Email Address</label>
+                  <button id="editEmailBtn" onclick="toggleEmailEdit()" class="btn ghost sm" style="padding:0 4px; font-size:0.8rem; height:24px; color:var(--primary); background:none; text-decoration:underline;">Edit</button>
+                </div>
+                <div class="form-value" id="emailDisplayContainer" style="display:block;">
+                  <span id="emailText"><%= currentUser ? currentUser.email : 'Loading...' %></span>
+                </div>
+                <div id="emailEditForm" class="hidden" style="display:flex; gap:8px; margin-top:8px;">
+                  <input type="email" id="newEmailInput" class="form-input" style="flex:1;" value="<%= currentUser ? currentUser.email : '' %>" />
+                  <button onclick="saveEmail()" class="btn primary sm">Save</button>
+                  <button onclick="toggleEmailEdit()" class="btn outline sm">Cancel</button>
                 </div>
               </div>
 
@@ -224,7 +232,7 @@
                 style="margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
                 🛡️ Administrative Privileges</h3>
               <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 12px;">
-                <a href="/admin/dashboard" class="btn primary">📊 System Dashboard</a>
+                <a href="/thesis/admin/pending" class="btn warning">⏳ Pending Thesis</a>
                 <a href="/admin/users" class="btn secondary">👥 Manage Users</a>
                 <a href="/admin/account-requests" class="btn info">📧 Account Requests</a>
                 <a href="/admin/reports" class="btn outline">📊 Generate Reports</a>
@@ -301,7 +309,8 @@
             const nameText = document.getElementById('nameText');
             if (nameText) nameText.textContent = u.user.name;
 
-            document.getElementById('email').textContent = u.user.email;
+            const emailText = document.getElementById('emailText');
+            if (emailText) emailText.textContent = u.user.email;
 
             const displayName = document.getElementById('displayName');
             if (displayName) displayName.textContent = u.user.name;
@@ -412,6 +421,56 @@
             editForm.classList.add('hidden');
             displayContainer.style.display = 'block';
             editBtn.style.display = 'block';
+          }
+        }
+
+        function toggleEmailEdit() {
+          const displayContainer = document.getElementById('emailDisplayContainer');
+          const editForm = document.getElementById('emailEditForm');
+          const editBtn = document.getElementById('editEmailBtn');
+          if (editForm.classList.contains('hidden')) {
+            editForm.classList.remove('hidden');
+            displayContainer.style.display = 'none';
+            editBtn.style.display = 'none';
+          } else {
+            editForm.classList.add('hidden');
+            displayContainer.style.display = 'block';
+            editBtn.style.display = 'block';
+          }
+        }
+
+        async function saveEmail() {
+          const newEmail = document.getElementById('newEmailInput').value.trim();
+          if (!newEmail) {
+            if (typeof showNotification === 'function') showNotification('Email cannot be empty', 'error');
+            return;
+          }
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(newEmail)) {
+            if (typeof showNotification === 'function') showNotification('Please enter a valid email address', 'error');
+            return;
+          }
+          try {
+            const res = await fetch('/api/profile/update-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: newEmail })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              document.getElementById('emailText').textContent = data.email;
+              const displayEmail = document.getElementById('displayEmail');
+              if (displayEmail) displayEmail.textContent = data.email;
+              toggleEmailEdit();
+              if (typeof showNotification === 'function') showNotification('Email updated successfully!', 'success');
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              const err = await res.json();
+              if (typeof showNotification === 'function') showNotification(err.error || 'Failed to update email', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            if (typeof showNotification === 'function') showNotification('Error updating email', 'error');
           }
         }
 

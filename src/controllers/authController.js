@@ -55,6 +55,8 @@ const login_post = async (req, res) => {
         console.error('Session save error:', err);
         return res.status(500).send('Server error during login');
       }
+      // Admins land directly on the thesis management queue
+      if (user.role === 'Admin') return res.redirect('/thesis/admin/pending');
       res.redirect('/');
     });
   } catch (err) {

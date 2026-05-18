@@ -316,11 +316,55 @@ async function sendFileFulfillmentEmail(to, requesterName, thesis, signedFileUrl
   }
 }
 
+/**
+ * Notify the OTHER party once a file request has been approved
+ * e.g. if Admin approved → notify Author, and vice versa
+ */
+async function sendApprovalSyncEmail(to, recipientName, approverType, requester, thesis) {
+  try {
+    const subject = `File Request Approved by ${approverType}: "${thesis.title}"`;
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:24px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0">🔔 File Request Approved</h2>
+      </div>
+      <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+        <p>Hello ${recipientName},</p>
+        <p>This is to inform you that the following thesis file request has been <strong>approved and fulfilled</strong> by the <strong>${approverType}</strong>.</p>
+        <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden;margin:16px 0">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold;width:140px">Thesis</td><td style="padding:10px 14px">${thesis.title}</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold">Requester</td><td style="padding:10px 14px">${requester.name} (${requester.email})</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold">Approved By</td><td style="padding:10px 14px">${approverType}</td></tr>
+        </table>
+        <p>The thesis file has already been sent to the requester's email. No further action is required from you.</p>
+        <p style="color:#999;font-size:12px">This is an automated synchronization notice from LNC Research Archives.</p>
+      </div>
+    </body></html>`;
+    const text = `File Request Approved\n\nHello ${recipientName},\n\nThe file request for "${thesis.title}" was approved by the ${approverType}.\nRequester: ${requester.name} (${requester.email})\n\nThe file has been sent to the requester. No action needed.`;
+
+    if (process.env.BREVO_API_KEY) {
+      const messageId = await sendViaBrevoApi(to, subject, html, text);
+      console.log('✅ Sync notification sent via Brevo API:', messageId);
+      return { success: true, messageId };
+    }
+    const transporter = await createTransporter();
+    if (!transporter) return { success: false, error: 'Email service not configured' };
+    const EmailSettings = require('../models/EmailSettings');
+    const settings = await EmailSettings.findById('email_settings');
+    const info = await transporter.sendMail({ from: settings?.emailUser, to, subject, html, text });
+    console.log('✅ Sync notification sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Error sending sync notification:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   sendAccountDetailsEmail,
   sendAdminNotificationEmail,
   sendPasswordResetEmail,
   sendFileRequestNotification,
-  sendFileFulfillmentEmail
+  sendFileFulfillmentEmail,
+  sendApprovalSyncEmail
 };
 
