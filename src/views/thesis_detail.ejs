@@ -261,9 +261,15 @@
             ⏳ <strong>Request Pending</strong><br><small>Submitted on ${new Date(existingRequest.createdAt).toLocaleDateString()}. Awaiting approval.</small>
           </div>`;
         } else if (existingRequest.status === 'fulfilled') {
-          area.innerHTML = `<div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px;border-radius:6px;text-align:center">
-            ✅ <strong>Request Approved</strong><br><small>Check your email for the download link.</small>
-          </div>`;
+          area.innerHTML = `
+            <div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px 12px;border-radius:6px;text-align:center;margin-bottom:12px">
+              ✅ <strong>Request Approved</strong>
+            </div>
+            <a href="/thesis-requests/download/${existingRequest._id}" class="btn lg primary" style="margin:0 auto;" download>
+              <span class="btn-icon">📥</span> Download Thesis PDF
+            </a>
+            <p class="muted text-sm text-center" style="margin-top:8px">You can re-download this file anytime.</p>
+          `;
         }
         return;
       }
