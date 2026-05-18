@@ -54,7 +54,7 @@
     function updateSummaryCards(stats) {
       document.getElementById('totalTheses').textContent = stats.totalTheses || 0;
       document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
-      document.getElementById('totalReviews').textContent = stats.totalReviews || 0;
+      document.getElementById('totalFileRequests').textContent = stats.totalFileRequests || 0;
       document.getElementById('pendingTheses').textContent = stats.pendingTheses || 0;
     }
     
@@ -219,8 +219,8 @@
               <h5>User Engagement</h5>
               <ul>
                 <li>Total Users: <strong id="reportTotalUsers">${document.getElementById('totalUsers').textContent}</strong></li>
-                <li>Total Reviews: <strong id="reportTotalReviews">${document.getElementById('totalReviews').textContent}</strong></li>
-                <li>Avg Reviews per Thesis: <strong>~2.3</strong> (estimated)</li>
+                <li>Total File Requests: <strong>${document.getElementById('totalFileRequests').textContent}</strong></li>
+                <li>Pending File Requests: <strong>${document.getElementById('pendingTheses').textContent}</strong></li>
               </ul>
             </div>
           </div>
@@ -229,7 +229,7 @@
             <h5>Key Insights</h5>
             <ul>
               <li>📈 Platform showing steady growth in submissions</li>
-              <li>✅ High-quality review engagement from academic community</li>
+              <li>✅ Permission-based file access ensuring thesis integrity</li>
               <li>⚡ Real-time notifications improving user experience</li>
               <li>🎯 Role-based access control ensuring platform integrity</li>
             </ul>
@@ -302,8 +302,8 @@
           <p class="muted">Total Users</p>
         </div>
         <div class="card">
-          <h3 class="text-success" id="totalReviews" style="margin-bottom: 8px;">Loading...</h3>
-          <p class="muted">Total Reviews</p>
+          <h3 class="text-success" id="totalFileRequests" style="margin-bottom: 8px;">Loading...</h3>
+          <p class="muted">File Requests</p>
         </div>
         <div class="card highlight">
           <h3 class="text-warning" id="pendingTheses" style="margin-bottom: 8px;">Loading...</h3>

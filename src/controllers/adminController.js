@@ -51,13 +51,14 @@ const badgeCounts = async (req, res) => {
 // GET /api/dashboard-stats
 const dashboardStats = async (req, res) => {
   try {
-    const [totalTheses, pendingTheses, approvedTheses, totalUsers, totalRequests, pendingFileRequests] = await Promise.all([
+    const [totalTheses, pendingTheses, approvedTheses, totalUsers, totalRequests, pendingFileRequests, totalFileRequests] = await Promise.all([
       Thesis.countDocuments(),
       Thesis.countDocuments({ status: 'Pending' }),
       Thesis.countDocuments({ status: 'Approved' }),
       User.countDocuments(),
       AccountRequest.countDocuments({ status: 'Pending' }),
-      ThesisRequest.countDocuments({ status: 'pending' })
+      ThesisRequest.countDocuments({ status: 'pending' }),
+      ThesisRequest.countDocuments()
     ]);
 
     res.json({
@@ -68,6 +69,7 @@ const dashboardStats = async (req, res) => {
       totalUsers,
       totalRequests,
       pendingFileRequests,
+      totalFileRequests,
       timestamp: new Date().toISOString()
     });
   } catch (error) {

@@ -1,7 +1,7 @@
 {
-  "name": "thesis-repo-peer-review",
+  "name": "lnc-research-archives",
   "version": "1.0.0",
-  "description": "Thesis Repository System with Peer Reviews (Express + MongoDB)",
+  "description": "Secure Academic Thesis Repository for Laguna Northwestern College (Express + MongoDB)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,7 +11,8 @@
     "express",
     "mongoose",
     "thesis",
-    "reviews"
+    "repository",
+    "archive"
   ],
   "author": "",
   "license": "MIT",

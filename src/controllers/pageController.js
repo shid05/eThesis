@@ -22,15 +22,14 @@ const upload = multer({
 // GET /
 const index = async (req, res) => {
   try {
-    const [totalTheses, totalReviews, totalUsers] = await Promise.all([
+    const [totalTheses, totalUsers] = await Promise.all([
       Thesis.countDocuments({ status: 'Approved' }),
-      Review.countDocuments(),
       User.countDocuments()
     ]);
-    res.render('index', { totalTheses, totalReviews, totalUsers });
+    res.render('index', { totalTheses, totalUsers });
   } catch (error) {
     console.error('Error fetching stats for index:', error);
-    res.render('index', { totalTheses: 0, totalReviews: 0, totalUsers: 0 });
+    res.render('index', { totalTheses: 0, totalUsers: 0 });
   }
 };
 

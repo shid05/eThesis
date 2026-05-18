@@ -155,7 +155,6 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
   maxAge: '1d',        // cache CSS/JS for 1 day
   etag: true           // enable ETag for conditional requests
 }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: 0 }));
 
 // Expose user to templates and socket.io
 app.use((req, res, next) => {
