@@ -1548,33 +1548,24 @@ input:focus, textarea:focus, select:focus {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  animation-delay: 0s;
 }
 
 .icon-item:nth-child(2) {
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-  animation-delay: 1.5s;
 }
 
 .icon-item:nth-child(3) {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  animation-delay: 3s;
 }
 
 .icon-item:nth-child(4) {
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  animation-delay: 4.5s;
-}
-
-@keyframes float-icon {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(10deg); }
 }
 
 /* Stats Section */
