@@ -167,20 +167,6 @@ body{
   color:var(--primary-light);
 }
 
-.navbar .brand:after{ 
-  content:""; 
-  display:inline-block; 
-  width:8px; height:8px; 
-  margin-left:10px; 
-  border-radius:50%; 
-  background:var(--gradient-primary); 
-  box-shadow:0 0 20px var(--primary), 0 0 40px var(--primary);
-}
-
-@keyframes pulse {
-  0%, 100% { opacity:1; transform:scale(1); }
-  50% { opacity:0.7; transform:scale(1.1); }
-}
 
 .navbar .links {
   display:flex;
@@ -4875,11 +4861,6 @@ img, video, iframe, embed, object {
 @media (max-width: 360px) {
   .navbar .brand {
     font-size: 0.95rem;
-  }
-  .navbar .brand:after {
-    width: 6px;
-    height: 6px;
-    margin-left: 6px;
   }
 }
 
