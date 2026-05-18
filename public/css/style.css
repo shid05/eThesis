@@ -167,6 +167,10 @@ body{
   color:var(--primary-light);
 }
 
+.navbar .brand:hover::after {
+  display:none;
+}
+
 
 .navbar .links {
   display:flex;
