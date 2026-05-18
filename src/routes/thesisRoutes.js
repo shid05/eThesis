@@ -23,9 +23,6 @@ router.get('/api/teachers', ensureAuthenticated, thesisController.teachersApi);
 router.get('/:id', thesisController.detail);
 router.get('/api/:id', thesisController.detailApi);
 
-// Download the PDF (fetches resource details from Cloudinary, then streams it back as an attachment)
-router.get('/:id/download', ensureAuthenticated, thesisController.download_get);
-
 // Teacher review queue
 router.get('/reviewer/pending', ensureAuthenticated, ensureRole('Teacher'), thesisController.reviewerPending);
 router.get('/api/reviewer/pending', ensureAuthenticated, ensureRole('Teacher'), thesisController.reviewerPendingApi);

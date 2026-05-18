@@ -216,9 +216,111 @@ async function sendPasswordResetEmail(userEmail, userName, resetUrl) {
   }
 }
 
+/**
+ * Notify thesis author + admins about a new file request
+ */
+async function sendFileRequestNotification(recipients, requester, thesis, reason, approvalUrl) {
+  try {
+    const subject = `Thesis File Request: "${thesis.title}"`;
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:24px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0">📬 New Thesis File Request</h2>
+      </div>
+      <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+        <p>A user has requested access to a thesis file in the LNC Research Archives.</p>
+        <table style="width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden;margin:16px 0">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold;width:140px">Requester</td><td style="padding:10px 14px">${requester.name} (${requester.email})</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold">Thesis</td><td style="padding:10px 14px">${thesis.title}</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold">Authors</td><td style="padding:10px 14px">${thesis.authorsName || 'N/A'}</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 14px;color:#667eea;font-weight:bold">Year</td><td style="padding:10px 14px">${thesis.yearPublished || 'N/A'}</td></tr>
+          <tr><td style="padding:10px 14px;color:#667eea;font-weight:bold;vertical-align:top">Reason</td><td style="padding:10px 14px">${reason}</td></tr>
+        </table>
+        <p>To <strong>approve</strong> this request and send the file to the requester, click the button below:</p>
+        <p style="text-align:center">
+          <a href="${approvalUrl}" style="background:#667eea;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold">✅ Approve & Send File</a>
+        </p>
+        <p style="color:#999;font-size:12px;text-align:center">This approval link expires in 7 days. Only one approval is needed.</p>
+      </div>
+    </body></html>`;
+    const text = `New Thesis File Request\n\nRequester: ${requester.name} (${requester.email})\nThesis: ${thesis.title}\nReason: ${reason}\n\nApprove: ${approvalUrl}`;
+
+    const results = [];
+    for (const to of recipients) {
+      try {
+        if (process.env.BREVO_API_KEY) {
+          const messageId = await sendViaBrevoApi(to, subject, html, text);
+          results.push({ to, success: true, messageId });
+        } else {
+          const transporter = await createTransporter();
+          if (!transporter) { results.push({ to, success: false, error: 'Not configured' }); continue; }
+          const EmailSettings = require('../models/EmailSettings');
+          const settings = await EmailSettings.findById('email_settings');
+          const info = await transporter.sendMail({ from: settings?.emailUser, to, subject, html, text });
+          results.push({ to, success: true, messageId: info.messageId });
+        }
+      } catch (e) {
+        results.push({ to, success: false, error: e.message });
+      }
+    }
+    console.log(`✅ File request notifications sent to ${results.filter(r => r.success).length}/${recipients.length} recipients`);
+    return { success: true, results };
+  } catch (error) {
+    console.error('❌ Error sending file request notification:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Send the approved file link to the requester
+ */
+async function sendFileFulfillmentEmail(to, requesterName, thesis, signedFileUrl, expiresHours = 48) {
+  try {
+    const subject = `Your Thesis File Request Has Been Approved: "${thesis.title}"`;
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#28a745,#20c997);color:white;padding:24px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0">✅ Your File Request Was Approved</h2>
+      </div>
+      <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+        <p>Hello ${requesterName},</p>
+        <p>Your request for the following thesis has been approved. You can download the file using the link below:</p>
+        <div style="background:white;padding:16px;border-radius:6px;border-left:4px solid #28a745;margin:16px 0">
+          <strong>${thesis.title}</strong><br>
+          <span style="color:#666">Authors: ${thesis.authorsName || 'N/A'} &bull; Year: ${thesis.yearPublished || 'N/A'}</span>
+        </div>
+        <p style="text-align:center">
+          <a href="${signedFileUrl}" style="background:#28a745;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold">📥 Download Thesis PDF</a>
+        </p>
+        <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px 16px;border-radius:4px;margin-top:16px">
+          <strong>⚠️ Important:</strong> This download link expires in <strong>${expiresHours} hours</strong>. Please download the file promptly.
+        </div>
+        <p style="color:#999;font-size:12px;margin-top:16px">If the button doesn't work, copy this URL: ${signedFileUrl}</p>
+      </div>
+    </body></html>`;
+    const text = `Your Thesis File Request Was Approved\n\nHello ${requesterName},\n\nYour request for "${thesis.title}" has been approved.\n\nDownload: ${signedFileUrl}\n\nThis link expires in ${expiresHours} hours.`;
+
+    if (process.env.BREVO_API_KEY) {
+      const messageId = await sendViaBrevoApi(to, subject, html, text);
+      console.log('✅ Fulfillment email sent via Brevo API:', messageId);
+      return { success: true, messageId };
+    }
+    const transporter = await createTransporter();
+    if (!transporter) return { success: false, error: 'Email service not configured' };
+    const EmailSettings = require('../models/EmailSettings');
+    const settings = await EmailSettings.findById('email_settings');
+    const info = await transporter.sendMail({ from: settings?.emailUser, to, subject, html, text });
+    console.log('✅ Fulfillment email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Error sending fulfillment email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   sendAccountDetailsEmail,
   sendAdminNotificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendFileRequestNotification,
+  sendFileFulfillmentEmail
 };
 

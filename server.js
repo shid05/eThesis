@@ -259,15 +259,13 @@ io.on('connection', (socket) => {
 const pageRoutes = require('./src/routes/pageRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const thesisRoutes = require('./src/routes/thesisRoutes');
-const reviewRoutes = require('./src/routes/reviewRoutes');
-const studentRatingRoutes = require('./src/routes/studentRatingRoutes');
+const thesisRequestRoutes = require('./src/routes/thesisRequestRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 
 app.use('/', pageRoutes);
 app.use('/', authRoutes);
 app.use('/thesis', thesisRoutes);
-app.use('/reviews', reviewRoutes);
-app.use('/student-ratings', studentRatingRoutes);
+app.use('/', thesisRequestRoutes);
 app.use('/admin', adminRoutes);
 
 // API endpoint for session info should be handled by pageRoutes

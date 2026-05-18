@@ -41,6 +41,7 @@ router.post('/api/admin/email-settings/test', ensureAuthenticated, ensureRole('A
 router.get('/api/thesis/recent-approved', ensureAuthenticated, ensureRole('Admin'), adminController.recentApprovedTheses);
 router.get('/api/thesis/recent', ensureAuthenticated, ensureRole('Admin'), adminController.recentTheses);
 router.get('/api/reviews/recent', ensureAuthenticated, ensureRole('Admin'), adminController.recentReviews);
+router.get('/api/admin/file-requests', ensureAuthenticated, ensureRole('Admin'), adminController.thesisRequestsApi);
 
 // ===== Admin Account Retrieval API routes =====
 router.get('/api/admin/account-retrievals', ensureAuthenticated, ensureRole('Admin'), adminController.accountRetrievalsApi);

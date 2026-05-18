@@ -74,90 +74,21 @@
             <div id="actionBar" class="action-buttons vertical"></div>
           </div>
           
-          <!-- Download Section -->
+          <!-- Request File Section -->
           <div class="download-container center flex-col" style="flex: 1; justify-content: center;">
-            <div class="download-icon" style="font-size: 3rem; margin-bottom: 16px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">📄</div>
-            <h3 style="margin-bottom: 4px;">Download Thesis</h3>
-            <p class="muted text-sm text-center" style="margin-bottom: 20px;">Access the complete PDF document</p>
-            <% if (thesis && thesis.fileUrl) { %>
-              <a id="file" href="/thesis/<%= thesis._id %>/download" class="btn lg primary responsive" style="width: 100%;" download>
-                <span class="btn-icon">⬇️</span> Download PDF
+            <div class="download-icon" style="font-size: 3rem; margin-bottom: 16px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">📬</div>
+            <h3 style="margin-bottom: 4px;">Request Thesis File</h3>
+            <p class="muted text-sm text-center" style="margin-bottom: 20px;">Submit a request to receive the full PDF via email</p>
+            <div id="requestFileArea" style="width:100%">
+              <a href="/login" class="btn lg ghost responsive" style="width: 100%;" id="requestFileFallback">
+                <span class="btn-icon">🔒</span> Login to Request
               </a>
-            <% } else { %>
-              <a id="file" href="/login" class="btn lg primary responsive" style="width: 100%;" target="_self">
-                <span class="btn-icon">🔒</span> Login to Download
-              </a>
-            <% } %>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- Reviews and Ratings Grid -->
-    <div class="thesis-content-grid margin-top-24">
-      
-      <!-- Reviews Section -->
-      <div class="content-card">
-        <div class="card-header">
-          <div class="header-left">
-            <h3>👨‍🏫 Teacher Reviews</h3>
-            <div class="reviews-stats">
-              <span class="stat-label">Average Rating:</span>
-              <strong id="teacherAvg" class="stat-value"><%= averageRating ? ('⭐ ' + averageRating + '/5') : 'No reviews yet' %></strong>
-            </div>
-          </div>
-        </div>
-        <div class="card-content">
-          <ul id="teacherReviews" class="reviews-list">
-            <% if (reviews && reviews.length > 0) { %>
-              <% reviews.forEach(function(review) { %>
-                <li class="card <%= (review.reviewerId && currentUser && review.reviewerId._id && currentUser.id && review.reviewerId._id.toString() === currentUser.id.toString()) ? 'highlight-border' : '' %>">
-                  <div class="review-header">
-                    <div>
-                      <strong>👨‍🏫 <%= review.reviewerId ? review.reviewerId.name : 'Anonymous Teacher' %></strong>
-                      <% if (review.reviewerId && currentUser && review.reviewerId._id && currentUser.id && review.reviewerId._id.toString() === currentUser.id.toString()) { %>
-                        <span class="badge success">Your Review</span>
-                      <% } %>
-                      <div class="rating-display">
-                        <% for (let i = 0; i < review.rating; i++) { %>
-                          <span>★</span>
-                        <% } %>
-                        <% for (let i = review.rating; i < 5; i++) { %>
-                          <span>☆</span>
-                        <% } %>
-                        <span class="rating-number"><%= review.rating %>/5</span>
-                      </div>
-                    </div>
-                    <span class="text-muted text-sm"><%= new Date(review.createdAt).toLocaleDateString() %></span>
-                  </div>
-                  <p class="review-comment"><%= review.comment || 'No comment' %></p>
-                </li>
-              <% }); %>
-            <% } else { %>
-              <li class="text-muted center loading-review">No teacher reviews yet</li>
-            <% } %>
-          </ul>
-        </div>
-      </div>
-      
-      <!-- Student Ratings Section -->
-      <div class="content-card">
-        <div class="card-header">
-          <div class="header-left">
-            <h3>👨‍🎓 Student Ratings</h3>
-            <div class="reviews-stats">
-              <span class="stat-label">Average Rating:</span>
-              <strong id="studentAvg" class="stat-value">Loading...</strong>
-            </div>
-          </div>
-        </div>
-        <div class="card-content">
-          <ul id="studentRatings" class="reviews-list">
-            <li class="text-muted center loading-review">Loading ratings...</li>
-          </ul>
-        </div>
-      </div>
-    </div>
   </main>
   
   <%- include('partials/footer') %>
@@ -165,47 +96,24 @@
   <script>
     async function load(){
       try {
-        console.log('Starting thesis detail load...');
         const id = location.pathname.split('/').pop();
-        console.log('Thesis ID:', id);
+        if (!id || id.length !== 24) throw new Error('Invalid thesis ID format');
         
-        if (!id || id.length !== 24) {
-          throw new Error('Invalid thesis ID format');
-        }
-        
-        console.log('Fetching thesis data...');
         const res = await fetch(`/thesis/api/${id}`);
-        console.log('Response status:', res.status);
-        
         if (!res.ok) {
           const errorText = await res.text().catch(() => 'Unknown error');
-          console.error('API error:', res.status, errorText);
           showError(`Error ${res.status}: ${errorText}`);
           return;
         }
         
         const data = await res.json();
-        console.log('Data received:', data);
+        if (!data || !data.thesis) throw new Error('No thesis data received');
         
-        if (!data || !data.thesis) {
-          throw new Error('No thesis data received');
-        }
+        const { thesis, userRole, isAuthor, canRequest, existingRequest } = data;
         
-         const { thesis, reviews, averageRating, canReview, userRole, canStudentRate, hasStudentRated, existingStudentRating, hasTeacherReviewed, existingTeacherReview } = data;
-        
-        // Update basic thesis information
         updateThesisInfo(thesis, userRole);
-        
-         // Handle user actions
-         setupUserActions(thesis, userRole, canReview, canStudentRate, hasStudentRated, existingStudentRating, hasTeacherReviewed, existingTeacherReview);
-        
-        // Display reviews
-        displayReviews(reviews || []);
-        
-        // Load student ratings (separate system)
-        await loadStudentRatings(thesis._id);
-        
-        console.log('Thesis detail loaded successfully');
+        setupUserActions(thesis, userRole);
+        setupRequestButton(thesis, userRole, isAuthor, canRequest, existingRequest);
         
       } catch (error) {
         console.error('Critical error in load function:', error);
@@ -264,99 +172,19 @@
             }
         }
         
-        const fileLink = document.getElementById('file');
-        if (fileLink) {
-          if (thesis.fileUrl) {
-            if (userRole) {
-              // Route through our backend so we can pull resource details
-              // from Cloudinary and stream the PDF as a real attachment.
-              fileLink.href = `/thesis/${thesis._id}/download`;
-              fileLink.innerHTML = '<span class="btn-icon">⬇️</span> Download PDF';
-              fileLink.className = 'btn lg primary responsive';
-              fileLink.removeAttribute('target');
-              fileLink.setAttribute('download', '');
-              fileLink.style.display = 'inline-flex';
-            } else {
-              fileLink.href = '/login';
-              fileLink.innerHTML = '<span class="btn-icon">🔒</span> Login to Download PDF';
-              fileLink.className = 'btn lg ghost responsive';
-              fileLink.target = '_self';
-              fileLink.removeAttribute('download');
-              fileLink.style.display = 'inline-flex';
-            }
-          } else {
-            // No file URL at all (potentially missing file or unauthorized view of unapproved thesis)
-            if (!userRole) {
-              fileLink.href = '/login';
-              fileLink.innerHTML = '<span class="btn-icon">🔒</span> Login to Download';
-              fileLink.className = 'btn lg ghost responsive';
-              fileLink.target = '_self';
-              fileLink.style.display = 'inline-flex';
-            } else {
-              fileLink.style.display = 'none';
-            }
-          }
-        }
-        
         document.title = `${thesis.title} - LNC Research Archives`;
       } catch (error) {
         console.error('Error updating thesis info:', error);
       }
     }
     
-    function setupUserActions(thesis, userRole, canReview, canStudentRate, hasStudentRated, existingStudentRating, hasTeacherReviewed, existingTeacherReview) {
+    function setupUserActions(thesis, userRole) {
       try {
         const actionBar = document.getElementById('actionBar');
         const actionContainer = document.getElementById('actionContainer');
         if (actionBar) actionBar.innerHTML = '';
         
         let hasActions = false;
-        
-         // Review button (for all authenticated users on approved theses, Teachers also on pending)
-         if (canReview) {
-           const reviewBtn = document.createElement('a');
-           reviewBtn.className = 'btn lg success';
-           
-           if (hasTeacherReviewed) {
-             // User has already reviewed - show Edit button
-             reviewBtn.href = `/reviews/edit/${thesis._id}`;
-             reviewBtn.innerHTML = '<span class="btn-icon">✏️</span> Edit Your Review';
-           } else {
-             // User hasn't reviewed yet - show Review button
-             reviewBtn.href = `/reviews/add/${thesis._id}`;
-             reviewBtn.innerHTML = thesis.status === 'Pending' ? '<span class="btn-icon">📝</span> Review Pending Thesis' : '<span class="btn-icon">📝</span> Write Review';
-           }
-           
-           reviewBtn.className = 'btn lg success responsive';
-           reviewBtn.style.justifyContent = 'center';
-           reviewBtn.style.textAlign = 'center';
-           reviewBtn.style.width = '100%';
-           actionBar.appendChild(reviewBtn);
-           hasActions = true;
-         }
-        
-        // Student rating button (only for approved theses)
-        if (canStudentRate) {
-          const ratingBtn = document.createElement('a');
-          ratingBtn.className = 'btn lg accent';
-          
-          if (hasStudentRated) {
-            // Student has already rated - show Edit button
-            ratingBtn.href = `/student-ratings/edit/${thesis._id}`;
-            ratingBtn.innerHTML = '<span class="btn-icon">✏️</span> Edit Your Rating';
-          } else {
-            // Student hasn't rated yet - show Rate button
-            ratingBtn.href = `/student-ratings/add/${thesis._id}`;
-            ratingBtn.innerHTML = '<span class="btn-icon">⭐</span> Rate This Thesis';
-          }
-          
-          ratingBtn.className = 'btn lg accent responsive';
-          ratingBtn.style.justifyContent = 'center';
-          ratingBtn.style.textAlign = 'center';
-          ratingBtn.style.width = '100%';
-          actionBar.appendChild(ratingBtn);
-          hasActions = true;
-        }
         
         // Admin/Adviser actions for pending theses
         const currentUserName = "<%- currentUser && currentUser.name ? currentUser.name.toLowerCase().replace(/['\"\\\\]/g, '\\\\$&') : '' %>";
@@ -408,125 +236,45 @@
       }
     }
     
-    function displayReviews(reviews) {
-      const reviewsList = document.getElementById('teacherReviews');
-      const avgElement = document.getElementById('teacherAvg');
-      
-      if (reviewsList && avgElement) {
-        if (reviews && reviews.length > 0) {
-          reviewsList.innerHTML = '';
-          let validCount = 0;
-          let totalRating = 0;
-          
-          reviews.forEach(review => {
-            if (!review || typeof review.rating !== 'number') return;
-            
-            validCount++;
-            totalRating += review.rating;
-            
-            const li = document.createElement('li');
-            li.className = 'card';
-            
-            // Highlight current teacher's review
-            const isCurrentUser = review.reviewerId?._id === getCurrentUserId();
-            if (isCurrentUser) {
-              li.classList.add('highlight-border');
-            }
-            
-            li.innerHTML = `
-              <div class="review-header">
-                <div>
-                  <strong>👨‍🏫 ${review.reviewerId?.name || 'Anonymous Teacher'}</strong>
-                  ${isCurrentUser ? '<span class="badge success">Your Review</span>' : ''}
-                  <div class="rating-display">
-                    ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)} 
-                    <span class="rating-number">${review.rating}/5</span>
-                  </div>
-                </div>
-                <span class="text-muted text-sm">${formatTimeAgo(review.createdAt)}</span>
-              </div>
-              <p class="review-comment">${review.comment || 'No comment'}</p>
-            `;
-            
-            reviewsList.appendChild(li);
-          });
-          
-         const avg = validCount > 0 ? (totalRating / validCount).toFixed(1) : null;
-         avgElement.innerHTML = avg ? `⭐ ${avg}/5` : 'No reviews yet';
-        } else {
-          reviewsList.innerHTML = '<li class="text-muted center">No teacher reviews yet</li>';
-          avgElement.textContent = 'No reviews yet';
-        }
+    function setupRequestButton(thesis, userRole, isAuthor, canRequest, existingRequest) {
+      const area = document.getElementById('requestFileArea');
+      if (!area) return;
+
+      if (!userRole) {
+        // Not logged in — keep the fallback login link
+        return;
       }
-    }
-    
-    async function loadStudentRatings(thesisId) {
-      try {
-        console.log('Loading student ratings for thesis:', thesisId);
-        const res = await fetch(`/student-ratings/api/${thesisId}`);
-        
-        const ratingsList = document.getElementById('studentRatings');
-        const avgElement = document.getElementById('studentAvg');
-        
-        if (!res.ok) {
-          console.log('Student ratings endpoint not available, status:', res.status);
-          if (ratingsList) ratingsList.innerHTML = '<li class="text-muted center">No student ratings yet</li>';
-          if (avgElement) avgElement.textContent = 'No ratings yet';
-          return;
-        }
-        
-        const data = await res.json();
-        console.log('Student ratings data:', data);
-        
-        if (ratingsList) ratingsList.innerHTML = '';
-        
-        if (data.ratings && data.ratings.length > 0) {
-          data.ratings.forEach(rating => {
-            if (!rating || typeof rating.rating !== 'number') return;
-            
-            const li = document.createElement('li');
-            li.className = 'card';
-            
-            // Highlight current user's rating
-            const isCurrentUser = rating.studentId?._id === getCurrentUserId();
-            if (isCurrentUser) {
-              li.classList.add('highlight-border');
-            }
-            
-            li.innerHTML = `
-              <div class="review-header">
-                <div>
-                  <strong>👨‍🎓 ${rating.studentId?.name || 'Anonymous Student'}</strong>
-                  ${isCurrentUser ? '<span class="badge accent">Your Rating</span>' : ''}
-                  <div class="rating-display">
-                    ${'★'.repeat(rating.rating)}${'☆'.repeat(5 - rating.rating)} 
-                    <span class="rating-number">${rating.rating}/5</span>
-                  </div>
-                </div>
-                <span class="text-muted text-sm">${formatTimeAgo(rating.createdAt)}</span>
-              </div>
-              <p class="review-comment">${rating.comment || 'No comment provided'}</p>
-            `;
-            
-            ratingsList.appendChild(li);
-          });
-          
-          if (avgElement) {
-            avgElement.innerHTML = data.averageRating 
-              ? `⭐ ${data.averageRating}/5 (${data.totalRatings} ratings)` 
-              : 'No ratings yet';
-          }
-        } else {
-          if (ratingsList) ratingsList.innerHTML = '<li class="text-muted center">No student ratings yet</li>';
-          if (avgElement) avgElement.textContent = 'No ratings yet';
-        }
-      } catch (error) {
-        console.error('Error loading student ratings:', error);
-        const ratingsList = document.getElementById('studentRatings');
-        const avgElement = document.getElementById('studentAvg');
-        if (ratingsList) ratingsList.innerHTML = '<li class="text-muted center">No student ratings yet</li>';
-        if (avgElement) avgElement.textContent = 'No ratings yet';
+
+      if (thesis.status !== 'Approved') {
+        area.innerHTML = '<p class="muted text-sm text-center">File requests are only available for approved theses.</p>';
+        return;
       }
+
+      if (isAuthor) {
+        area.innerHTML = '<p class="muted text-sm text-center">You are the uploader of this thesis.</p>';
+        return;
+      }
+
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          area.innerHTML = `<div style="background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px;border-radius:6px;text-align:center">
+            ⏳ <strong>Request Pending</strong><br><small>Submitted on ${new Date(existingRequest.createdAt).toLocaleDateString()}. Awaiting approval.</small>
+          </div>`;
+        } else if (existingRequest.status === 'fulfilled') {
+          area.innerHTML = `<div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px;border-radius:6px;text-align:center">
+            ✅ <strong>Request Approved</strong><br><small>Check your email for the download link.</small>
+          </div>`;
+        }
+        return;
+      }
+
+      // Eligible to request
+      area.innerHTML = `
+        <button onclick="showRequestModal('${thesis._id}', document.getElementById('title').textContent)" class="btn lg primary responsive" style="width:100%">
+          <span class="btn-icon">📬</span> Request Thesis via Email
+        </button>
+        <p class="muted text-sm text-center" style="margin-top:8px">The author and admin will be notified to approve your request.</p>
+      `;
     }
     
     function showError(message) {
@@ -581,29 +329,89 @@
       }
     }
     
-     function formatTimeAgo(dateString) {
-       try {
-         const date = new Date(dateString);
-         const now = new Date();
-         const diffInSeconds = Math.floor((now - date) / 1000);
-         
-         if (diffInSeconds < 60) return 'Just now';
-         if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-         if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-         return `${Math.floor(diffInSeconds / 86400)}d ago`;
-       } catch (error) {
-         return 'Unknown time';
-       }
-     }
     
-     function getCurrentUserId() {
-       // Get current user ID from notifications.js global state
-       return window.currentUser?.id || null;
-     }
-    
+     function showRequestModal(thesisId, thesisTitle) {
+      document.getElementById('requestThesisId').value = thesisId;
+      document.getElementById('requestThesisTitle').textContent = thesisTitle;
+      document.getElementById('requestReason').value = '';
+      document.getElementById('requestError').style.display = 'none';
+      document.getElementById('requestModal').style.display = 'flex';
+    }
+
+    function hideRequestModal() {
+      document.getElementById('requestModal').style.display = 'none';
+    }
+
+    async function submitFileRequest() {
+      const thesisId = document.getElementById('requestThesisId').value;
+      const reason = document.getElementById('requestReason').value.trim();
+      const errorEl = document.getElementById('requestError');
+      const submitBtn = document.getElementById('submitRequestBtn');
+
+      if (reason.length < 20) {
+        errorEl.textContent = 'Please provide at least 20 characters explaining your reason.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/thesis-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thesisId, reason })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Failed to submit request.';
+          errorEl.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = '📬 Submit Request';
+          return;
+        }
+        hideRequestModal();
+        const area = document.getElementById('requestFileArea');
+        if (area) area.innerHTML = `<div style="background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px;border-radius:6px;text-align:center">
+          ✅ <strong>Request Submitted!</strong><br><small>${data.message || 'You will be notified by email when approved.'}</small>
+        </div>`;
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📬 Submit Request';
+      }
+    }
+
     window.onload = load;
   </script>
   
+  <!-- Request File Modal -->
+  <div id="requestModal" class="modal-overlay" style="display:none">
+    <div class="card modal-content-large">
+      <h3>📬 Request Thesis File</h3>
+      <p>Request the full PDF of <strong id="requestThesisTitle"></strong> to be delivered to your email.</p>
+      <input type="hidden" id="requestThesisId">
+      <div class="form-group">
+        <label for="requestReason">Reason for Request <span style="color:#dc3545">*</span></label>
+        <textarea
+          id="requestReason"
+          placeholder="Please explain why you need access to this thesis (e.g., academic research, related study, professional use)..."
+          rows="5"
+          minlength="20"
+        ></textarea>
+        <small class="muted">Minimum 20 characters. Your justification will be sent to the author and administrator for review.</small>
+      </div>
+      <div id="requestError" class="error-box" style="display:none;margin-top:8px"></div>
+      <div class="flex-wrap gap-12 margin-top-20">
+        <button type="button" id="submitRequestBtn" class="btn primary" onclick="submitFileRequest()">📬 Submit Request</button>
+        <button type="button" class="btn ghost" onclick="hideRequestModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rejection Modal -->
   <div id="rejectModal" class="modal-overlay">
     <div class="card modal-content-large">

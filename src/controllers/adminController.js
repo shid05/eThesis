@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Thesis = require('../models/Thesis');
-const Review = require('../models/Review');
 const User = require('../models/User');
 const AccountRequest = require('../models/AccountRequest');
 const AccountRetrieval = require('../models/AccountRetrieval');
 const EmailSettings = require('../models/EmailSettings');
-const StudentRating = require('../models/StudentRating');
+const ThesisRequest = require('../models/ThesisRequest');
 const { sendAccountDetailsEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const { getBadgeCounts, emitBadgeCounts } = require('../utils/badgeCounts');
 const { createNotification, createNotificationForMany } = require('../utils/notificationHelper');
@@ -52,13 +51,13 @@ const badgeCounts = async (req, res) => {
 // GET /api/dashboard-stats
 const dashboardStats = async (req, res) => {
   try {
-    const [totalTheses, pendingTheses, approvedTheses, totalReviews, totalUsers, totalRequests] = await Promise.all([
+    const [totalTheses, pendingTheses, approvedTheses, totalUsers, totalRequests, pendingFileRequests] = await Promise.all([
       Thesis.countDocuments(),
       Thesis.countDocuments({ status: 'Pending' }),
       Thesis.countDocuments({ status: 'Approved' }),
-      Review.countDocuments(),
       User.countDocuments(),
-      AccountRequest.countDocuments({ status: 'Pending' })
+      AccountRequest.countDocuments({ status: 'Pending' }),
+      ThesisRequest.countDocuments({ status: 'pending' })
     ]);
 
     res.json({
@@ -66,9 +65,9 @@ const dashboardStats = async (req, res) => {
       pendingTheses,
       approvedTheses,
       rejectedTheses: totalTheses - pendingTheses - approvedTheses,
-      totalReviews,
       totalUsers,
       totalRequests,
+      pendingFileRequests,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -80,23 +79,23 @@ const dashboardStats = async (req, res) => {
 // GET /api/recent-activity
 const recentActivity = async (req, res) => {
   try {
-    const [recentTheses, recentReviews] = await Promise.all([
+    const [recentTheses, recentFileRequests] = await Promise.all([
       Thesis.find()
         .populate('author', 'name')
         .sort({ createdAt: -1 })
         .limit(5)
         .select('title status createdAt author'),
-      Review.find()
-        .populate('reviewerId', 'name')
-        .populate('thesisId', 'title')
+      ThesisRequest.find({ status: 'pending' })
+        .populate('thesis', 'title')
+        .populate('requester', 'name')
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('rating createdAt reviewerId thesisId')
+        .select('status createdAt thesis requester')
     ]);
 
     res.json({
       recentTheses,
-      recentReviews,
+      recentFileRequests,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -114,15 +113,11 @@ const usersApi = async (req, res) => {
 
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
-        const [thesesCount, reviewsCount] = await Promise.all([
-          Thesis.countDocuments({ author: user._id }),
-          Review.countDocuments({ reviewerId: user._id })
-        ]);
+        const thesesCount = await Thesis.countDocuments({ author: user._id });
 
         return {
           ...user.toObject(),
           thesesCount,
-          reviewsCount,
           lastLogin: user.updatedAt
         };
       })
@@ -216,8 +211,7 @@ const deleteUser = async (req, res) => {
 
     await Promise.all([
       Thesis.deleteMany({ author: userId }),
-      Review.deleteMany({ reviewerId: userId }),
-      StudentRating.deleteMany({ studentId: userId })
+      ThesisRequest.deleteMany({ requester: userId })
     ]);
 
     await User.findByIdAndDelete(userId);
@@ -551,20 +545,9 @@ const recentTheses = async (req, res) => {
   }
 };
 
-// GET /api/reviews/recent
+// GET /api/reviews/recent — deprecated, kept for backwards compat
 const recentReviews = async (req, res) => {
-  try {
-    const recent = await Review.find({})
-      .populate('reviewerId', 'name')
-      .populate('thesisId', 'title')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    res.json(recent);
-  } catch (error) {
-    console.error('Error fetching recent reviews:', error);
-    res.status(500).json({ error: 'Failed to fetch recent reviews' });
-  }
+  res.json([]);
 };
 
 // GET /api/system/health
@@ -715,6 +698,19 @@ module.exports = {
   recentTheses,
   recentReviews,
   systemHealth,
+  thesisRequestsApi: async (req, res) => {
+    try {
+      const requests = await ThesisRequest.find()
+        .populate('thesis', 'title')
+        .populate('requester', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+      res.json(requests);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch file requests' });
+    }
+  },
   accountRetrievalsApi,
   approveRetrieval,
   rejectRetrieval

@@ -1,9 +1,7 @@
 const multer = require('multer');
 const mongoose = require('mongoose');
-const https = require('https');
-const http = require('http');
 const Thesis = require('../models/Thesis');
-const Review = require('../models/Review');
+const ThesisRequest = require('../models/ThesisRequest');
 const User = require('../models/User');
 const {
   cloudinary,
@@ -158,7 +156,7 @@ const detail = (req, res, next) => {
   const firstSeg = (req.params.id || '').toLowerCase();
   const reserved = new Set(['api', 'upload', 'mine', 'reviewer', 'admin', 'edit', 'delete']);
   if (reserved.has(firstSeg)) return next();
-  return res.render('thesis_detail', { thesis: null, reviews: null, averageRating: null });
+  return res.render('thesis_detail', { thesis: null });
 };
 
 // GET /thesis/api/:id (JSON - detail with reviews)
@@ -185,58 +183,22 @@ const detailApi = async (req, res) => {
       return res.status(403).json({ error: 'You do not have access to view this thesis' });
     }
     
-    // Get reviews
-    const reviews = await Review.find({ thesisId: thesis._id })
-      .populate('reviewerId', 'name')
-      .lean();
-    
-    // Filter out invalid reviews
-    const validReviews = reviews.filter(r => 
-      r && 
-      typeof r.rating === 'number' && 
-      r.rating >= 1 && 
-      r.rating <= 5 &&
-      r.comment
-    );
-    
-    const avg = validReviews.length
-      ? (validReviews.reduce((sum, r) => sum + r.rating, 0) / validReviews.length).toFixed(2)
-      : null;
-    
-    // Check if current user has already reviewed this thesis
-    let hasUserReviewed = false;
-    if (req.session?.user) {
-      hasUserReviewed = reviews.some(review => {
-        const reviewer = review.reviewerId;
-        return reviewer && reviewer._id && reviewer._id.toString() === req.session.user.id;
-      });
+    // Check if user has a pending/fulfilled file request for this thesis
+    let existingRequest = null;
+    if (req.session?.user && !isOwner && thesis.status === 'Approved') {
+      existingRequest = await ThesisRequest.findOne({
+        thesis: thesis._id,
+        requester: req.session.user.id,
+        status: { $in: ['pending', 'fulfilled'] }
+      }).select('status createdAt').lean();
     }
-    
-    // Check if current student has already rated this thesis
-    let hasStudentRated = false;
-    let existingStudentRating = null;
-    const isStudentAuthor = req.session?.user?.role === 'Student' && isOwner;
-    if (req.session?.user?.role === 'Student' && !isStudentAuthor) {
-      const StudentRating = require('../models/StudentRating');
-      existingStudentRating = await StudentRating.findOne({
-        thesisId: thesis._id,
-        studentId: req.session.user.id
-      });
-      hasStudentRated = !!existingStudentRating;
-    }
-    
-    res.json({ 
-      thesis, 
-      reviews: validReviews,
-      averageRating: avg,
-      canReview: req.session?.user && ['Teacher', 'Admin'].includes(req.session?.user?.role) && !hasUserReviewed && (thesis.status === 'Approved' || (req.session?.user?.role === 'Teacher' && thesis.status === 'Pending')),
+
+    res.json({
+      thesis,
       userRole: req.session?.user?.role || null,
       isAuthor: isOwner,
-      canStudentRate: req.session?.user?.role === 'Student' && thesis.status === 'Approved' && !isStudentAuthor,
-      hasStudentRated,
-      existingStudentRating,
-      hasTeacherReviewed: hasUserReviewed,
-      existingTeacherReview: hasUserReviewed ? validReviews.find(r => r.reviewerId?._id?.toString() === req.session.user.id) : null
+      canRequest: req.session?.user && !isOwner && thesis.status === 'Approved',
+      existingRequest
     });
   } catch (e) {
     console.error('Error fetching thesis details:', e);
@@ -382,7 +344,7 @@ const delete_post = async (req, res) => {
       await deleteFromCloudinary(publicId, { resource_type: 'raw' });
     }
     
-    await Review.deleteMany({ thesisId: thesis._id });
+    await ThesisRequest.deleteMany({ thesis: thesis._id });
     await Thesis.findByIdAndDelete(req.params.id);
     
     console.log(`🗑️ Thesis deleted: "${thesis.title}" by ${req.session.user.name}`);
@@ -700,6 +662,5 @@ module.exports = {
   approve_post,
   reject_post,
   revoke_post,
-  download_get,
   teachersApi
 };
