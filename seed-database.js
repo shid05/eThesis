@@ -1,11 +1,10 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 
-const User          = require('./src/models/User');
-const Thesis        = require('./src/models/Thesis');
-const Review        = require('./src/models/Review');
-const StudentRating = require('./src/models/StudentRating');
-const Notification  = require('./src/models/Notification');
+const User             = require('./src/models/User');
+const Thesis           = require('./src/models/Thesis');
+const ThesisRequest    = require('./src/models/ThesisRequest');
+const Notification     = require('./src/models/Notification');
 const AccountRequest   = require('./src/models/AccountRequest');
 const AccountRetrieval = require('./src/models/AccountRetrieval');
 
@@ -25,8 +24,8 @@ mongoose
 // ---------------------------------------------------------------------------
 const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 
-// Placeholder Cloudinary URL — download will return 404 from Cloudinary,
-// but all other thesis features (detail, review, rate) work fine with seed data.
+// Placeholder Cloudinary URL — the file won't open, but all other features
+// (browsing, detail view, file requests) work fine with seed data.
 const PLACEHOLDER_PDF = 'https://res.cloudinary.com/demo/raw/upload/sample.pdf';
 
 // ---------------------------------------------------------------------------
@@ -36,8 +35,7 @@ async function seedDatabase() {
     await Promise.all([
       User.deleteMany({}),
       Thesis.deleteMany({}),
-      Review.deleteMany({}),
-      StudentRating.deleteMany({}),
+      ThesisRequest.deleteMany({}),
       Notification.deleteMany({}),
       AccountRequest.deleteMany({}),
       AccountRetrieval.deleteMany({}),
@@ -45,21 +43,21 @@ async function seedDatabase() {
     console.log('🗑️  Cleared all collections');
 
     // ── 2. Users ─────────────────────────────────────────────────────────
-    // Passwords are plaintext here — the User pre-save hook hashes them.
-    const [admin, teacher1, teacher2, student1, student2, student3] = await Promise.all([
-      User.create({ name: 'Michael Rojo',      email: 'michaelrojo@lnc.edu',    password: 'Admin@1234',   role: 'Admin',   createdAt: daysAgo(60) }),
-      User.create({ name: 'Maria Santos',    email: 'msantos@lnc.edu',  password: 'Teacher@1234', role: 'Teacher', createdAt: daysAgo(45) }),
-      User.create({ name: 'Jose Reyes',      email: 'jreyes@lnc.edu',   password: 'Teacher@1234', role: 'Teacher', createdAt: daysAgo(40) }),
-      User.create({ name: 'Franz Raschid Loyola',        email: 'franzloyola@lnc.edu',    password: 'Student@1234', role: 'Student', createdAt: daysAgo(30) }),
-      User.create({ name: 'Hanz Villegas',   email: 'hanzvillegas@lnc.edu', password: 'Student@1234', role: 'Student', createdAt: daysAgo(25) }),
-      User.create({ name: 'Charles Darwin Garcia',   email: 'charlesgarcia@lnc.edu',  password: 'Student@1234', role: 'Student', createdAt: daysAgo(20) }),
-      User.create({ name: 'John Michael Aquino',   email: 'jmaquino@lnc.edu',  password: 'Student@1234', role: 'Student', createdAt: daysAgo(15) }),
-      User.create({ name: 'Aira Joy Francisco',   email: 'ajfrancisco@lnc.edu',  password: 'Student@1234', role: 'Student', createdAt: daysAgo(10) }),
-    ]);
-    console.log('👥  Created 6 users (1 Admin, 2 Teachers, 3 Students)');
+    // Passwords are plaintext — the User pre-save hook hashes them automatically.
+    const [admin, teacher1, teacher2, student1, student2, student3, student4, student5] =
+      await Promise.all([
+        User.create({ name: 'Michael Rojo',         email: 'michaelrojo@lnc.edu',   password: 'Admin@1234',   role: 'Admin',   createdAt: daysAgo(60) }),
+        User.create({ name: 'Maria Santos',         email: 'msantos@lnc.edu',       password: 'Teacher@1234', role: 'Teacher', createdAt: daysAgo(45) }),
+        User.create({ name: 'Jose Reyes',           email: 'jreyes@lnc.edu',        password: 'Teacher@1234', role: 'Teacher', createdAt: daysAgo(40) }),
+        User.create({ name: 'Franz Raschid Loyola', email: 'franzloyola@lnc.edu',   password: 'Student@1234', role: 'Student', createdAt: daysAgo(30) }),
+        User.create({ name: 'Hanz Villegas',        email: 'hanzvillegas@lnc.edu',  password: 'Student@1234', role: 'Student', createdAt: daysAgo(25) }),
+        User.create({ name: 'Charles Darwin Garcia',email: 'charlesgarcia@lnc.edu', password: 'Student@1234', role: 'Student', createdAt: daysAgo(20) }),
+        User.create({ name: 'John Michael Aquino',  email: 'jmaquino@lnc.edu',      password: 'Student@1234', role: 'Student', createdAt: daysAgo(15) }),
+        User.create({ name: 'Aira Joy Francisco',   email: 'ajfrancisco@lnc.edu',   password: 'Student@1234', role: 'Student', createdAt: daysAgo(10) }),
+      ]);
+    console.log('👥  Created 8 users (1 Admin, 2 Teachers, 5 Students)');
 
     // ── 3. Theses ─────────────────────────────────────────────────────────
-    // adviser values match teacher names exactly so the approval gate works.
     const theses = await Thesis.insertMany([
       {
         title: 'Machine Learning Applications in Healthcare Diagnostics',
@@ -67,7 +65,7 @@ async function seedDatabase() {
         category: 'Capstone',
         course: 'BSIT',
         adviser: 'Maria Santos',
-        authorsName: 'Franz Raschid Loyola, Charles Garcia',
+        authorsName: 'Franz Raschid Loyola, Charles Darwin Garcia',
         yearPublished: '2026',
         fileUrl: PLACEHOLDER_PDF,
         author: student1._id,
@@ -83,7 +81,7 @@ async function seedDatabase() {
         authorsName: 'Hanz Villegas, John Michael Aquino, Aira Joy Francisco',
         yearPublished: '2026',
         fileUrl: PLACEHOLDER_PDF,
-        author: student3._id,
+        author: student2._id,
         status: 'Approved',
         createdAt: daysAgo(20),
       },
@@ -128,7 +126,7 @@ async function seedDatabase() {
       },
       {
         title: 'E-Commerce Platform with AI-Driven Product Recommendation Engine',
-        abstract: 'This capstone developed a full-stack e-commerce platform with an integrated collaborative filtering recommendation engine. The recommendation system was trained on a synthetic dataset of 50,000 purchase transactions and achieved a precision@10 of 0.74 on held-out test data. The platform was load-tested to support 500 concurrent users without degradation.',
+        abstract: 'This capstone developed a full-stack e-commerce platform with an integrated collaborative filtering recommendation engine. The recommendation system was trained on a synthetic dataset of 50,000 purchase transactions and achieved a precision@10 of 0.74 on held-out test data. The platform was load-tested to support 500 concurrent users without degradation, and the checkout conversion rate improved by 18% compared to a static product listing baseline.',
         category: 'Capstone',
         course: 'BSBA',
         adviser: 'Jose Reyes',
@@ -143,103 +141,67 @@ async function seedDatabase() {
     ]);
     console.log('📚  Created 6 theses (3 Approved, 2 Pending, 1 Rejected)');
 
-    const [thesis1, thesis2, thesis3] = theses; // only approved theses get reviews/ratings
+    const [thesis1, thesis2, thesis3] = theses; // first three are Approved
 
-    // ── 4. Teacher Reviews (approved theses only) ─────────────────────────
-    await Review.insertMany([
+    // ── 4. Thesis File Requests ───────────────────────────────────────────
+    // Demonstrates the three main request states visible in the admin panel.
+    await ThesisRequest.insertMany([
       {
-        thesisId: thesis1._id,
-        reviewerId: teacher1._id,
-        rating: 5,
-        comment: 'Outstanding methodology and clearly articulated results. The 23% improvement benchmark is well-supported by the dataset analysis. Recommend for publication in the departmental research journal.',
-        createdAt: daysAgo(25),
+        thesis: thesis1._id,
+        requester: student3._id,
+        reason: 'I am conducting a related study on AI applications in Philippine healthcare and need this thesis as a primary reference for my methodology chapter.',
+        status: 'pending',
+        authorToken: ThesisRequest.generateToken(),
+        adminToken: ThesisRequest.generateToken(),
+        tokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: daysAgo(3),
       },
       {
-        thesisId: thesis1._id,
-        reviewerId: teacher2._id,
-        rating: 4,
-        comment: 'Solid contribution to the field. The literature review is comprehensive. I recommend expanding the discussion on ethical implications of AI in clinical settings before final publication.',
-        createdAt: daysAgo(24),
+        thesis: thesis2._id,
+        requester: student4._id,
+        reason: 'This thesis is directly relevant to my capstone on digital governance systems. I need the full document to properly cite and build upon the blockchain architecture described.',
+        status: 'approved',
+        approvedByType: 'Administrator',
+        approvedBy: admin._id,
+        approvedAt: daysAgo(1),
+        createdAt: daysAgo(4),
       },
       {
-        thesisId: thesis2._id,
-        reviewerId: teacher2._id,
-        rating: 5,
-        comment: 'Impressive technical depth for an undergraduate capstone. The security analysis is rigorous and the low-literacy accessibility consideration shows real-world awareness. Excellent work.',
-        createdAt: daysAgo(17),
-      },
-      {
-        thesisId: thesis3._id,
-        reviewerId: teacher1._id,
-        rating: 4,
-        comment: 'The IoT system design is practical and the field trial results are compelling. The cost breakdown section could be more detailed to help future implementors replicate the system.',
-        createdAt: daysAgo(12),
+        thesis: thesis3._id,
+        requester: student5._id,
+        reason: 'I am writing a research paper on sustainable agriculture technology and this IoT irrigation study is directly aligned with my topic area.',
+        status: 'fulfilled',
+        approvedByType: 'Author',
+        approvedBy: teacher1._id,
+        approvedAt: daysAgo(6),
+        fulfilledAt: daysAgo(6),
+        createdAt: daysAgo(8),
       },
     ]);
-    console.log('⭐  Created 4 teacher reviews');
+    console.log('�  Created 3 file requests (1 pending, 1 approved, 1 fulfilled)');
 
-    // ── 5. Student Ratings (approved theses only, no self-rating) ─────────
-    await StudentRating.insertMany([
-      {
-        thesisId: thesis1._id,
-        studentId: student3._id,
-        rating: 5,
-        comment: 'Very relevant to our current healthcare challenges in the Philippines. The findings are clearly explained and the methodology section was easy to follow even for a non-ML student.',
-        createdAt: daysAgo(22),
-      },
-      {
-        thesisId: thesis2._id,
-        studentId: student1._id,
-        rating: 5,
-        comment: 'This is exactly the kind of civic tech research we need. The blockchain voting prototype is genuinely impressive and the security comparison with paper ballots was eye-opening.',
-        createdAt: daysAgo(16),
-      },
-      {
-        thesisId: thesis2._id,
-        studentId: student2._id,
-        rating: 4,
-        comment: 'Great concept and well-written. I wish there was more discussion on how this could scale to city-level elections.',
-        createdAt: daysAgo(15),
-      },
-      {
-        thesisId: thesis3._id,
-        studentId: student1._id,
-        rating: 4,
-        comment: 'As someone from a farming province, this hits close to home. The water savings stat is remarkable. Hope this gets piloted more broadly.',
-        createdAt: daysAgo(10),
-      },
-      {
-        thesisId: thesis3._id,
-        studentId: student3._id,
-        rating: 5,
-        comment: 'Practical, well-researched, and socially relevant. The Raspberry Pi implementation shows strong engineering skills. Would love to see this commercialized.',
-        createdAt: daysAgo(9),
-      },
-    ]);
-    console.log('👍  Created 5 student ratings');
-
-    // ── 6. Summary ────────────────────────────────────────────────────────
+    // ── 5. Summary ────────────────────────────────────────────────────────
     console.log('\n✅  Database seeded successfully!\n');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔑  Login Credentials (password shown is pre-hash):');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('  ADMIN   │ michaelrojo@lnc.edu       │ Admin@1234');
-    console.log('  TEACHER │ msantos@lnc.edu     │ Teacher@1234');
-    console.log('  TEACHER │ jreyes@lnc.edu      │ Teacher@1234');
-    console.log('  STUDENT │ franzloyola@lnc.edu       │ Student@1234');
-    console.log('  STUDENT │ hanzvillegas@lnc.edu    │ Student@1234');
-    console.log('  STUDENT │ charlesgarcia@lnc.edu     │ Student@1234');
-    console.log('  STUDENT │ jmaquino@lnc.edu     │ Student@1234');
-    console.log('  STUDENT │ ajfrancisco@lnc.edu     │ Student@1234');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('⚠️  NOTE: Thesis PDF downloads will return a Cloudinary');
-    console.log('    404 — placeholder URLs are used for seed data.');
-    console.log('    All other features (detail, review, rate) work normally.\n');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔑  Login Credentials:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  ADMIN   │ michaelrojo@lnc.edu      │ Admin@1234');
+    console.log('  TEACHER │ msantos@lnc.edu          │ Teacher@1234');
+    console.log('  TEACHER │ jreyes@lnc.edu           │ Teacher@1234');
+    console.log('  STUDENT │ franzloyola@lnc.edu      │ Student@1234');
+    console.log('  STUDENT │ hanzvillegas@lnc.edu     │ Student@1234');
+    console.log('  STUDENT │ charlesgarcia@lnc.edu    │ Student@1234');
+    console.log('  STUDENT │ jmaquino@lnc.edu         │ Student@1234');
+    console.log('  STUDENT │ ajfrancisco@lnc.edu      │ Student@1234');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('⚠️  NOTE: Thesis file links use a Cloudinary placeholder URL.');
+    console.log('    The file itself will not open, but browsing, detail view,');
+    console.log('    and the file request workflow all function normally.\n');
 
   } catch (error) {
     console.error('❌ Seeding error:', error.message);
     if (error.code === 11000) {
-      console.error('   Duplicate key — run the script again after clearing the DB.');
+      console.error('   Duplicate key — wipe the DB first or re-run with a fresh MONGO_URI.');
     }
   } finally {
     await mongoose.connection.close();
