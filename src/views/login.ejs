@@ -59,7 +59,7 @@
   
   <%- include('partials/footer') %>
   
-  <script>
+  <script nonce="<%= nonce %>">
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
     async function handleLogin(e) {

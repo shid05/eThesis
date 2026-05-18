@@ -358,7 +358,7 @@
 </style>
 <% } %>
 
-<script>
+<script nonce="<%= nonce %>">
   (function () {
     var toggle = document.getElementById('navToggle');
     var links = document.getElementById('navLinks');
@@ -409,7 +409,7 @@
 </script>
 
 <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'Admin') { %>
-<script>
+<script nonce="<%= nonce %>">
   /**
    * Admin notification badges (top-corner notification dots)
    *

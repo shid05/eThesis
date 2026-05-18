@@ -300,7 +300,7 @@
 
     <%- include('partials/footer') %>
 
-      <script>
+      <script nonce="<%= nonce %>">
         async function load() {
           try {
             const u = await fetch('/session-info').then(r => r.json());

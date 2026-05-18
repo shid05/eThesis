@@ -5,7 +5,7 @@
   <title>Reports - LNC Research Archives</title>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/public/js/notifications.js"></script>
-  <script>
+  <script nonce="<%= nonce %>">
     async function onLoad() {
       try {
         const userResponse = await fetch('/session-info');

@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
@@ -16,6 +17,12 @@ const app = express();
 
 // Trust proxy for secure cookies over ngrok/HTTPS
 app.set('trust proxy', 1);
+
+// Generate a fresh CSP nonce for every request (must run before helmet)
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
 
 // Set EJS as view engine
 app.set('view engine', 'ejs');
@@ -35,9 +42,13 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI
 const SESSION_SECRET = process.env.SESSION_SECRET || 'secret';
-if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
-  console.error('❌ FATAL: SESSION_SECRET environment variable is not set in production. Exiting.');
-  process.exit(1);
+if (!process.env.SESSION_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ FATAL: SESSION_SECRET is not set. Exiting.');
+    process.exit(1);
+  } else {
+    console.warn('⚠️  SESSION_SECRET not set — using insecure default. Set it in .env before deploying.');
+  }
 }
 
 // MongoDB connection with better error handling
@@ -66,16 +77,16 @@ mongoose.connection.on('disconnected', () => {
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc:  ["'self'"],
-      scriptSrc:    ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc:    ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc:     ["'self'", "data:", "https://fonts.gstatic.com"],
-      imgSrc:      ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
-      connectSrc:  ["'self'", "ws:", "wss:"],
-      frameSrc:    ["'none'"],
-      objectSrc:   ["'none'"],
-      baseUri:     ["'self'"],
+      defaultSrc:    ["'self'"],
+      scriptSrc:     ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
+      scriptSrcAttr: ["'unsafe-inline'"],  // inline event handlers (onclick etc.)
+      styleSrc:      ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc:       ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc:        ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
+      connectSrc:    ["'self'", "ws:", "wss:"],
+      frameSrc:      ["'none'"],
+      objectSrc:     ["'none'"],
+      baseUri:       ["'self'"],
     }
   },
   crossOriginEmbedderPolicy: false,

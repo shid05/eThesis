@@ -61,7 +61,7 @@
   
   <%- include('partials/footer') %>
   
-  <script>
+  <script nonce="<%= nonce %>">
     // Check for success parameter in URL
     window.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
