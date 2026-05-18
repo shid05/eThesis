@@ -1,3 +1,4 @@
+const https = require('https');
 const mongoose = require('mongoose');
 const ThesisRequest = require('../models/ThesisRequest');
 const Thesis = require('../models/Thesis');
@@ -172,31 +173,18 @@ const approveRequest = async (req, res) => {
       `);
     }
 
-    // Generate a 48-hour signed Cloudinary URL
-    // fl_attachment forces the browser to download (not render inline) and
-    // sets the Content-Disposition filename so the file saves as a proper PDF.
-    const publicId = extractPublicIdFromUrl(thesis.fileUrl);
-    const expiresAt = Math.floor(Date.now() / 1000) + 48 * 3600;
-    const safeFilename = (thesis.title || 'thesis')
-      .replace(/[^a-zA-Z0-9 ]/g, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .substring(0, 60) + '.pdf';
-    const signedUrl = cloudinary.url(publicId, {
-      resource_type: 'raw',
-      type: 'upload',
-      sign_url: true,
-      expires_at: expiresAt,
-      flags: `attachment:${safeFilename}`
-    });
+    // Build a permanent download URL through our own server so the browser
+    // always receives proper Content-Type: application/pdf headers.
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const downloadUrl = `${appUrl}/thesis-requests/download/${request._id}`;
 
     // Send fulfillment email to the requester
     await sendFileFulfillmentEmail(
       request.requester.email,
       request.requester.name,
       { title: thesis.title, authorsName: thesis.authorsName, yearPublished: thesis.yearPublished },
-      signedUrl,
-      48
+      downloadUrl,
+      null
     );
 
     // Determine who approved based on which token was used
@@ -294,4 +282,69 @@ const listRequests = async (req, res) => {
   }
 };
 
-module.exports = { submitRequest, approveRequest, listRequests };
+// GET /thesis-requests/download/:requestId
+// Proxies the PDF through our server so Content-Type and Content-Disposition
+// are set explicitly — works correctly on all devices and browsers.
+const downloadFile = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(requestId)) {
+      return res.status(404).send('Invalid download link');
+    }
+
+    const request = await ThesisRequest.findById(requestId)
+      .populate('thesis', 'title fileUrl');
+
+    if (!request || request.status !== 'fulfilled') {
+      return res.status(404).send(`
+        <html><body style="font-family:Arial,sans-serif;text-align:center;padding:60px">
+          <h2>Download link not found</h2>
+          <p>This link is invalid or the request has not been approved yet.</p>
+          <a href="${process.env.APP_URL || '/'}">← Return to Home</a>
+        </body></html>
+      `);
+    }
+
+    const thesis = request.thesis;
+    const publicId = extractPublicIdFromUrl(thesis.fileUrl);
+    if (!publicId) return res.status(500).send('File reference is missing');
+
+    // Short-lived signed URL used only server-side (never sent to client)
+    const expiresAt = Math.floor(Date.now() / 1000) + 300; // 5 minutes
+    const signedUrl = cloudinary.url(publicId, {
+      resource_type: 'raw',
+      type: 'upload',
+      secure: true,
+      sign_url: true,
+      expires_at: expiresAt
+    });
+
+    const safeFilename = (thesis.title || 'thesis')
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 80) + '.pdf';
+
+    // Stream the file from Cloudinary to the client with explicit PDF headers
+    https.get(signedUrl, (cloudRes) => {
+      if (cloudRes.statusCode !== 200) {
+        return res.status(502).send('File temporarily unavailable. Please try again.');
+      }
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+      if (cloudRes.headers['content-length']) {
+        res.setHeader('Content-Length', cloudRes.headers['content-length']);
+      }
+      cloudRes.pipe(res);
+    }).on('error', (err) => {
+      console.error('Download proxy error:', err);
+      if (!res.headersSent) res.status(502).send('File temporarily unavailable.');
+    });
+
+  } catch (error) {
+    console.error('Error in downloadFile:', error);
+    if (!res.headersSent) res.status(500).send('Server error');
+  }
+};
+
+module.exports = { submitRequest, approveRequest, downloadFile, listRequests };

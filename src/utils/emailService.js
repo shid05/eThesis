@@ -273,7 +273,7 @@ async function sendFileRequestNotification(recipients, requester, thesis, reason
 /**
  * Send the approved file link to the requester
  */
-async function sendFileFulfillmentEmail(to, requesterName, thesis, signedFileUrl, expiresHours = 48) {
+async function sendFileFulfillmentEmail(to, requesterName, thesis, downloadUrl) {
   try {
     const subject = `Your Thesis File Request Has Been Approved: "${thesis.title}"`;
     const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
@@ -282,21 +282,18 @@ async function sendFileFulfillmentEmail(to, requesterName, thesis, signedFileUrl
       </div>
       <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
         <p>Hello ${requesterName},</p>
-        <p>Your request for the following thesis has been approved. You can download the file using the link below:</p>
+        <p>Your request for the following thesis has been approved. Click the button below to download the PDF:</p>
         <div style="background:white;padding:16px;border-radius:6px;border-left:4px solid #28a745;margin:16px 0">
           <strong>${thesis.title}</strong><br>
           <span style="color:#666">Authors: ${thesis.authorsName || 'N/A'} &bull; Year: ${thesis.yearPublished || 'N/A'}</span>
         </div>
         <p style="text-align:center">
-          <a href="${signedFileUrl}" style="background:#28a745;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold">📥 Download Thesis PDF</a>
+          <a href="${downloadUrl}" style="background:#28a745;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold">📥 Download Thesis PDF</a>
         </p>
-        <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px 16px;border-radius:4px;margin-top:16px">
-          <strong>⚠️ Important:</strong> This download link expires in <strong>${expiresHours} hours</strong>. Please download the file promptly.
-        </div>
-        <p style="color:#999;font-size:12px;margin-top:16px">If the button doesn't work, copy this URL: ${signedFileUrl}</p>
+        <p style="color:#999;font-size:12px;margin-top:16px">If the button doesn't work, copy this URL: ${downloadUrl}</p>
       </div>
     </body></html>`;
-    const text = `Your Thesis File Request Was Approved\n\nHello ${requesterName},\n\nYour request for "${thesis.title}" has been approved.\n\nDownload: ${signedFileUrl}\n\nThis link expires in ${expiresHours} hours.`;
+    const text = `Your Thesis File Request Was Approved\n\nHello ${requesterName},\n\nYour request for "${thesis.title}" has been approved.\n\nDownload: ${downloadUrl}`;
 
     if (process.env.BREVO_API_KEY) {
       const messageId = await sendViaBrevoApi(to, subject, html, text);
