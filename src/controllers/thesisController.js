@@ -45,7 +45,7 @@ const upload_post = async (req, res) => {
     const result = await uploadToCloudinary(req.file.buffer, {
       folder: 'ethesis/theses',
       resource_type: 'raw',
-      public_id: `thesis-${req.session.user.id}-${Date.now()}`
+      public_id: `thesis-${req.session.user.id}-${Date.now()}.pdf`
     });
     const fileUrl = result.secure_url;
     
@@ -295,15 +295,15 @@ const edit_post = async (req, res) => {
     if (req.file) {
       // Delete old Cloudinary file if it exists
       if (thesis.fileUrl && thesis.fileUrl.includes('cloudinary.com')) {
-        const oldPublicId = thesis.fileUrl.split('/').pop().split('.')[0];
-        await deleteFromCloudinary(oldPublicId, { resource_type: 'raw' });
+        const oldPublicId = extractPublicIdFromUrl(thesis.fileUrl);
+        if (oldPublicId) await deleteFromCloudinary(oldPublicId, { resource_type: 'raw' });
       }
       
       // Upload new PDF to Cloudinary
       const result = await uploadToCloudinary(req.file.buffer, {
         folder: 'ethesis/theses',
         resource_type: 'raw',
-        public_id: `thesis-${req.session.user.id}-${Date.now()}`
+        public_id: `thesis-${req.session.user.id}-${Date.now()}.pdf`
       });
       updateData.fileUrl = result.secure_url;
     }

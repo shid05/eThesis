@@ -173,13 +173,21 @@ const approveRequest = async (req, res) => {
     }
 
     // Generate a 48-hour signed Cloudinary URL
+    // fl_attachment forces the browser to download (not render inline) and
+    // sets the Content-Disposition filename so the file saves as a proper PDF.
     const publicId = extractPublicIdFromUrl(thesis.fileUrl);
     const expiresAt = Math.floor(Date.now() / 1000) + 48 * 3600;
+    const safeFilename = (thesis.title || 'thesis')
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 60) + '.pdf';
     const signedUrl = cloudinary.url(publicId, {
       resource_type: 'raw',
       type: 'upload',
       sign_url: true,
-      expires_at: expiresAt
+      expires_at: expiresAt,
+      flags: `attachment:${safeFilename}`
     });
 
     // Send fulfillment email to the requester
