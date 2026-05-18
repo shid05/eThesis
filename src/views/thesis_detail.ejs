@@ -79,9 +79,9 @@
             <div class="download-icon" style="font-size: 3rem; margin-bottom: 16px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">📬</div>
             <h3 style="margin-bottom: 4px;">Request Thesis File</h3>
             <p class="muted text-sm text-center" style="margin-bottom: 20px;">Submit a request to receive the full PDF via email</p>
-            <div id="requestFileArea" style="width:100%">
-              <a href="/login" class="btn lg ghost responsive" style="width: 100%;" id="requestFileFallback">
-                <span class="btn-icon">🔒</span> Login to Request
+            <div id="requestFileArea" style="display:flex; flex-direction:column; align-items:center;">
+              <a href="/login" class="btn lg ghost" id="requestFileFallback">
+                <span class="btn-icon">&#x1F512;</span> Login to Request
               </a>
             </div>
           </div>
@@ -270,8 +270,8 @@
 
       // Eligible to request
       area.innerHTML = `
-        <button onclick="showRequestModal('${thesis._id}', document.getElementById('title').textContent)" class="btn lg primary responsive" style="width:100%">
-          <span class="btn-icon">📬</span> Request Thesis via Email
+        <button onclick="showRequestModal('${thesis._id}', document.getElementById('title').textContent)" class="btn lg primary" style="margin:0 auto;">
+          <span class="btn-icon">&#x1F4EC;</span> Request Thesis via Email
         </button>
         <p class="muted text-sm text-center" style="margin-top:8px">The author and admin will be notified to approve your request.</p>
       `;

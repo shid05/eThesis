@@ -4378,11 +4378,6 @@ input:focus, textarea:focus, select:focus {
   color: var(--text);
   margin: 0;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
